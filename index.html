@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Blockwild</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1117">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.js" } }
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui-root">
+  <div id="hud" class="hidden"></div>
+  <div id="debug" class="hidden"></div>
+  <div id="chat" class="hidden"></div>
+  <div id="screens"></div>
+  <div id="toast"></div>
+  <div id="overlay-fx"></div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
