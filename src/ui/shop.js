@@ -1,6 +1,6 @@
 // Автосалон спасателей: крупные карточки транспорта с картинками, цена в ⭐ из миссий (в творческом — бесплатно)
 import { VEHICLES, CAR_COLORS, TRUCK_COLORS } from '../entity/carbot.js';
-import { SOLID } from '../world/blocks.js';
+import { boxIntersects } from '../player/physics.js';
 
 const h = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
 
@@ -96,13 +96,14 @@ export class Shop {
     q?.say(v.kind === 'heli' ? 'shop_heli' : v.kind === 'car' ? 'shop_car' : 'shop_truck');
     this.close();
   }
-  // где поставить покупку: площадка выдачи (вертолёт — вертолётная площадка), иначе перед игроком
+  // где поставить покупку: площадка выдачи у магазина (и вертолёт тоже — с дальней вертолётной площадки его не видно), иначе перед игроком
   spot(kind) {
     const g = this.g, t = g.meta.town, p = g.player;
-    let base = (kind === 'heli' && t?.heli) || t?.shopPad;
+    let base = t?.shopPad;
     if (!base || Math.hypot(base.x - p.x, base.z - p.z) > 60) base = { x: p.x - Math.sin(p.yaw) * 4, y: p.y + 0.5, z: p.z - Math.cos(p.yaw) * 4 };
-    const busy = (x, z) => g.entities.list.some((e) => e.type === 'carbot' && !e.dead && Math.hypot(e.x - x, e.z - z) < 2.2);
-    const w = g.world, free = (x, z) => !busy(x, z) && !SOLID[w.getBlock(Math.floor(x), Math.floor(base.y), Math.floor(z))] && !SOLID[w.getBlock(Math.floor(x), Math.floor(base.y) + 1, Math.floor(z))];
+    const heli = kind === 'heli', r = heli ? 3.2 : 2.2, bw = heli ? 2.6 : 1.4;
+    const busy = (x, z) => g.entities.list.some((e) => e.type === 'carbot' && !e.dead && Math.hypot(e.x - x, e.z - z) < r);
+    const w = g.world, free = (x, z) => !busy(x, z) && !boxIntersects(w, x, Math.floor(base.y) + 0.05, z, bw, heli ? 2.2 : 1.7);
     for (const dz of [0, 4, -4, 8, -8]) for (const dx of [0, 3, -3, 6, -6, 9, -9]) {
       const x = base.x + dx, z = base.z + dz;
       if (free(x, z)) return { x, y: base.y + 0.05, z, yaw: Math.PI };

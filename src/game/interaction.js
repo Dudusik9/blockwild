@@ -65,14 +65,12 @@ export class Interaction {
       this.mining = null; this.progress = 0; g.selection.setCrack(0);
     } else if (lDown && target) {
       const b = BLOCKS[target.id];
-      if (p.creative) {
-        // неразрушаемые (касса, дно мира) не ломаются и в творческом
-        if (b.hardness >= 0 && (lPress || this.cool <= 0)) { this.cool = 0.22; g.breakBlock(target.x, target.y, target.z, { byPlayer: true }); g.hand?.punch(); }
-        this.progress = 0; g.selection.setCrack(0);
-      } else {
+      {
         const m = this.mining;
         if (!m || m.x !== target.x || m.y !== target.y || m.z !== target.z) { this.mining = { x: target.x, y: target.y, z: target.z }; this.progress = 0; this.hitT = 0; }
-        const T = this.breakTimeFor(b, stack);
+        // в творческом — не мгновенно, а с трещинами за фиксированное время (малыш не сносит полдома одним касанием);
+        // неразрушаемые (касса, дно мира) не ломаются и в творческом
+        const T = p.creative ? (b.hardness < 0 ? Infinity : b.hardness === 0 ? 0.2 : 0.6) : this.breakTimeFor(b, stack);
         if (T === Infinity) { g.selection.setCrack(0); }
         else {
           this.progress += T === 0 ? 1 : dt / T;
