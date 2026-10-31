@@ -12,7 +12,7 @@ img { image-rendering: pixelated; -webkit-user-drag: none; }
 #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; mix-blend-mode: difference; }
 #crosshair::before, #crosshair::after { content: ""; position: absolute; background: #fff; }
 #crosshair::before { left: 10px; top: 2px; width: 2px; height: 18px; } #crosshair::after { left: 2px; top: 10px; width: 18px; height: 2px; }
-#hud-bottom { position: absolute; left: 50%; bottom: calc(6px + var(--sa-b)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
+#hud-bottom { position: absolute; z-index: 3; left: 50%; bottom: calc(6px + var(--sa-b)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
 #hud-name { height: 22px; font-size: 15px; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000; opacity: 0; margin-bottom: 4px; }
 #stats { width: calc(var(--slot) * 9); display: block; margin-bottom: 3px; }
 #stats .row { display: flex; justify-content: space-between; min-height: 20px; }
