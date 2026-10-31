@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { Entity } from './entity.js';
 import { MobModel, Paint, faceRects } from './mobmodel.js';
-import { moveEntity } from '../player/physics.js';
+import { moveEntity, boxIntersects } from '../player/physics.js';
 import { isWater, SOLID } from '../world/blocks.js';
 import { lightBrightness } from './items-drop.js';
 import { getItem } from '../game/items.js';
@@ -189,7 +189,7 @@ export class Carbot extends Entity {
   interact(g, stack) {
     const nm = stack ? getItem(stack.id)?.name : null;
     if (nm && WOOL_COLOR[nm] && this.kind === 'car') { if (this.setColor(WOOL_COLOR[nm])) { g.particles?.poof(this.x, this.y + 0.6, this.z, 12); g.sfx?.play('craft'); } return true; }
-    if (this.mode === 'car' && this.t === 0) { this.mount(g); return true; }
+    if (this.mode === 'car' && this.t === 0) { if (!(this.exitT > 0)) this.mount(g); return true; }
     if (this.mode === 'robot') { this.wave = 1.6; g.sfx?.play('door', { x: this.x, y: this.y + 2, z: this.z }, 0.8, 1.6); return true; }
     return false;
   }
@@ -208,14 +208,19 @@ export class Carbot extends Entity {
     g.touch?.unlatchSneak();
     for (const pet of this.passengers) pet.ridingOn = null;
     this.passengers = [];
-    // встать сбоку
-    const side = this.kind === 'heli' ? 2.2 : 1.6, sx = Math.cos(this.yaw), sz = -Math.sin(this.yaw), w = g.world;
-    for (const s of [side, -side, 0]) {
-      const x = this.x + sx * s, z = this.z + sz * s, by = Math.floor(this.y);
-      if (!SOLID[w.getBlock(Math.floor(x), by, Math.floor(z))] && !SOLID[w.getBlock(Math.floor(x), by + 1, Math.floor(z))]) { p.setPos(x, this.y + 0.05, z); break; }
-      if (s === 0) p.setPos(this.x, this.y + this.h + 0.1, this.z);
+    // встать снаружи: по бокам, спереди/сзади, по диагонали — где хватает места (иначе игрок оказывался внутри кузова)
+    const side = this.kind === 'heli' ? 2.2 : this.kind === 'car' ? 1.6 : 1.8, len = this.kind === 'car' ? 1.9 : 2.6;
+    const s = Math.sin(this.yaw), c = Math.cos(this.yaw), w = g.world;
+    const spots = [[side, 0], [-side, 0], [0, -len], [0, len], [side, -len], [-side, -len], [side, len], [-side, len], [side + 1, 0], [-side - 1, 0]];
+    let out = null;
+    for (const [lx, lz] of spots) {
+      const x = this.x + lx * c + lz * s, z = this.z - lx * s + lz * c;
+      for (const dy of [0.05, 0.6, 1.1]) if (!boxIntersects(w, x, this.y + dy, z, p.w || 0.6, p.h || 1.8)) { out = [x, this.y + dy, z]; break; }
+      if (out) break;
     }
+    p.setPos(...(out || [this.x, this.y + this.h + 0.1, this.z]));
     p.peakY = p.y;
+    this.exitT = 0.8; // короткая пауза: касание сразу после выхода не сажает обратно
   }
   transform(g) {
     if (this.kind !== 'car' || (this.t !== 0 && this.t !== 1)) return;
@@ -229,12 +234,14 @@ export class Carbot extends Entity {
   }
 
   // за рулём: вперёд/назад — газ, влево/вправо — руль; камера сама догоняет. Вертолёт: прыжок — вверх.
+  // выйти: вертолёт в воздухе сначала садится; true — уже снаружи
+  exit(g) {
+    if (this.kind === 'heli' && !this.onGround) { this.landing = true; return false; }
+    this.dismount(g); return true;
+  }
   drive(dt, inp, p) {
     const g = this.g;
-    if (inp.sneak) {
-      if (this.kind === 'heli' && !this.onGround) this.landing = true; // в воздухе — сначала сесть
-      else { this.dismount(g); return; }
-    }
+    if (inp.sneak && this.exit(g)) return;
     const target = inp.forward && !inp.back ? (inp.sprint ? this.maxSpeed * 1.3 : this.maxSpeed) : inp.back && !inp.forward ? -4 : 0;
     const steer = (inp.left ? 1 : 0) - (inp.right ? 1 : 0); // влево — yaw растёт
     if (steer) this.yaw += steer * (this.kind === 'heli' ? 1.8 : 2.4) * dt * (this.speed < -0.5 ? -1 : 1);
@@ -257,6 +264,7 @@ export class Carbot extends Entity {
   update(dt, g) {
     this.g = g;
     const w = g.world;
+    if (this.exitT > 0) this.exitT -= dt;
     if (!w.isLoaded(Math.floor(this.x), Math.floor(this.z))) return;
     // превращение
     if (this.tt > 0) {

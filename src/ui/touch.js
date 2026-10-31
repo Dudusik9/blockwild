@@ -24,7 +24,8 @@ export class TouchControls {
     this.bJump = mk('jump', '⤒', null, (d) => { if (d) c.keys.add('Space'); else c.keys.delete('Space'); });
     this.sneakOn = false;
     this.bSneak = mk('sneak', '⤓', () => {
-      if (game.player?.riding) { c.keys.add('ShiftLeft'); setTimeout(() => { if (!this.sneakOn) c.keys.delete('ShiftLeft'); }, 150); return; } // за рулём — просто «выйти»
+      // за рулём — сразу «выйти», без короткого нажатия Shift: на медленном планшете его съедал один долгий кадр
+      if (game.player?.riding) { if (game.state === 'playing' && !game.uiOpen) game.player.riding.exit(game); return; }
       this.sneakOn = !this.sneakOn; this.bSneak.classList.toggle('latch', this.sneakOn); if (this.sneakOn) c.keys.add('ShiftLeft'); else c.keys.delete('ShiftLeft');
     });
     mk('inv', '🎒', () => { if (game.uiOpen) game.closeUI(); else if (game.state === 'playing') game.openUI('inventory'); });
