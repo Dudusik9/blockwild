@@ -436,6 +436,50 @@ reg('i_arrow', (p) => { p.clear(); p.line(3, 13, 12, 4, [150, 110, 64]); p.set(1
 reg('i_shears', (p) => { p.clear(); p.line(4, 4, 11, 11, [220, 220, 228]); p.line(11, 4, 4, 11, [180, 180, 190]); p.disc(3, 13, 1.8, [200, 60, 50]); p.disc(12, 13, 1.8, [200, 60, 50]); p.line(3, 12, 7, 8, [150, 150, 160]); p.line(12, 12, 8, 8, [150, 150, 160]); p.outline([30, 30, 34]); });
 reg('i_flint_steel', (p) => { p.clear(); p.rect(3, 8, 7, 5, [70, 70, 78]); p.rect(3, 8, 7, 1, [110, 110, 120]); p.rect(9, 3, 4, 7, [220, 220, 228]); p.rect(10, 4, 2, 5, [20, 20, 24]); p.set(5, 7, [255, 200, 60]); p.set(6, 6, [255, 240, 140]); p.outline([20, 20, 24]); });
 
+// ---------- питомцы, машинка, эффекты ----------
+reg('i_fish', (p) => {
+  p.clear(); const c = [80, 150, 220], d = [50, 100, 170];
+  for (let y = 5; y < 12; y++) for (let x = 3; x < 12; x++) if (((x - 7.5) / 4.6) ** 2 + ((y - 8.5) / 3.2) ** 2 <= 1) p.set(x, y, c);
+  for (let y = 4; y < 14; y++) { const w = Math.abs(y - 8.5) * 0.6; for (let x = 11; x < 12 + w && x < 15; x++) p.set(x, y, d); }
+  p.rect(5, 10, 5, 1, [180, 210, 240]); p.set(5, 7, [255, 255, 255]); p.set(5, 8, [20, 20, 30]); p.line(8, 6, 9, 10, d); p.outline([20, 40, 80]);
+});
+reg('i_dog_treat', (p) => {
+  p.clear(); const c = [196, 140, 80], h = [226, 176, 110];
+  p.rect(5, 6, 6, 4, c); p.disc(4, 5.5, 2, c); p.disc(4, 10, 2, c); p.disc(11.5, 5.5, 2, c); p.disc(11.5, 10, 2, c);
+  p.rect(5, 6, 6, 1, h); p.set(4, 4, h); p.set(11, 4, h); p.set(7, 8, [150, 100, 56]); p.set(9, 8, [150, 100, 56]); p.outline([80, 50, 24]);
+});
+function petFace(p, fur, ear, eye, cat) {
+  p.clear();
+  if (cat) { p.line(3, 2, 3, 6, fur); p.line(4, 3, 4, 6, fur); p.set(5, 4, fur); p.line(12, 2, 12, 6, fur); p.line(11, 3, 11, 6, fur); p.set(10, 4, fur); p.set(4, 4, [240, 150, 170]); p.set(11, 4, [240, 150, 170]); }
+  p.disc(7.5, 9, 5.4, fur);
+  if (!cat) { p.rect(1, 5, 3, 7, ear); p.rect(12, 5, 3, 7, ear); p.rect(5, 11, 6, 3, [244, 236, 220]); }
+  p.rect(5, 7, 2, 2, eye); p.rect(9, 7, 2, 2, eye); p.set(5, 7, [255, 255, 255]); p.set(9, 7, [255, 255, 255]);
+  p.rect(7, 10, 2, 1, cat ? [240, 130, 150] : [30, 24, 20]); p.set(6, 12, [60, 40, 40]); p.set(9, 12, [60, 40, 40]);
+  if (!cat) p.rect(4, 14, 8, 1, [210, 50, 40]);
+  p.outline([40, 28, 20]);
+}
+reg('i_spawn_kitten', (p) => petFace(p, [232, 146, 74], null, [60, 160, 60], true));
+reg('i_spawn_puppy', (p) => petFace(p, [196, 140, 86], [120, 80, 46], [30, 24, 20], false));
+reg('i_car_key', (p) => {
+  p.clear(); const c = [216, 52, 40], d = [160, 30, 24];
+  p.rect(2, 7, 12, 4, c); p.rect(4, 4, 7, 3, c); p.rect(5, 5, 2, 2, [170, 220, 250]); p.rect(8, 5, 2, 2, [170, 220, 250]);
+  p.rect(2, 10, 12, 1, d); p.set(13, 8, [255, 230, 120]); p.set(2, 8, [255, 120, 100]);
+  p.disc(4.5, 11.5, 1.8, [40, 40, 44]); p.disc(11.5, 11.5, 1.8, [40, 40, 44]); p.set(4, 11, [170, 170, 176]); p.set(11, 11, [170, 170, 176]);
+  p.outline([30, 16, 14]);
+});
+reg('fx_heart', (p) => {
+  p.clear(); const c = [255, 255, 255];
+  p.disc(5, 5.5, 3.3, c); p.disc(10.5, 5.5, 3.3, c);
+  for (let y = 6; y < 15; y++) { const k = y - 6; for (let x = 1 + k; x <= 14 - k; x++) p.set(x, y, c); }
+});
+reg('fx_star', (p) => {
+  p.clear(); const c = [255, 255, 255];
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const dx = x - 7.5, dy = y - 8, a = Math.atan2(dx, -dy), r = Math.hypot(dx, dy);
+    if (r <= 3.2 + 4.6 * Math.pow(Math.abs(Math.cos(a * 2.5)), 3)) p.set(x, y, c);
+  }
+});
+
 // ---------- сборка атласа ----------
 let built = false;
 export function buildAtlas() {

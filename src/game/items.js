@@ -70,6 +70,12 @@ ARMOR_MATS.forEach((m) => ARMOR_PARTS.forEach((p, i) => {
   const title = (i === 0 ? AM[m].n + ' ' : i === 1 ? AM[m].n + ' ' : AM[m].n.slice(0, -2) + 'ые ') + PART_RU[i];
   item(m + '_' + p, title, { stack: 1, dur: AM[m].dur, armor: { slot: i, defense: AM[m].d[i] } });
 }));
+// питомцы и машинка (новые предметы — только в конец, чтобы не сдвинуть id в старых сохранениях)
+item('fish', 'Рыбка', { food: { hunger: 2, sat: 1.2 } });
+item('dog_treat', 'Косточка-печенька');
+item('spawn_kitten', 'Котёнок', { spawn: 'kitten' });
+item('spawn_puppy', 'Щенок-спасатель', { spawn: 'puppy' });
+item('car_key', 'Машинка-робот', { stack: 1, spawn: 'carbot' });
 
 export const getItem = (id) => ITEMS.get(id);
 export const maxStack = (id) => { const it = ITEMS.get(id); return it ? it.stack : 64; };

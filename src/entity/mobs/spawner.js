@@ -4,7 +4,9 @@ import { B, SOLID, OPAQUE, isLiquid } from '../../world/blocks.js';
 import { BIOME } from '../../world/biomes.js';
 import { hash2 } from '../../core/noise.js';
 
-const PASSIVE = { ram: [BIOME.MEADOW, BIOME.BIRCH, BIOME.MOUNTAINS, BIOME.TAIGA], hen: [BIOME.MEADOW, BIOME.SAVANNA, BIOME.BIRCH], boar: [BIOME.TAIGA, BIOME.BIRCH, BIOME.SWAMP, BIOME.MEADOW] };
+const PASSIVE = { ram: [BIOME.MEADOW, BIOME.BIRCH, BIOME.MOUNTAINS, BIOME.TAIGA], hen: [BIOME.MEADOW, BIOME.SAVANNA, BIOME.BIRCH], boar: [BIOME.TAIGA, BIOME.BIRCH, BIOME.SWAMP, BIOME.MEADOW],
+  kitten: [BIOME.MEADOW, BIOME.BIRCH], puppy: [BIOME.MEADOW, BIOME.TAIGA, BIOME.SAVANNA] };
+const hostile = (e) => e.def.ai !== 'passive' && e.def.ai !== 'pet';
 const HOSTILE = { swamper: [BIOME.SWAMP, BIOME.BIRCH, BIOME.TAIGA, BIOME.MEADOW, BIOME.TUNDRA], archer: [BIOME.MEADOW, BIOME.DESERT, BIOME.SAVANNA, BIOME.MOUNTAINS, BIOME.TUNDRA, BIOME.TAIGA], bomber: null };
 
 export class MobManager {
@@ -12,8 +14,8 @@ export class MobManager {
     this.g = game; this.t = 0; this.kinds = {}; for (const k of MOB_KINDS) this.kinds[k] = true;
     this.popDone = new Set(); this.enabled = true;
   }
-  spawnMob(kind, x, y, z) { const m = new Mob(this.g, kind, x, y, z); this.g.entities.add(m); return m; }
-  counts() { let pa = 0, ho = 0; for (const e of this.g.entities.list) if (e.isMob) { if (e.def.ai === 'passive') pa++; else ho++; } return { pa, ho }; }
+  spawnMob(kind, x, y, z, variant) { const m = new Mob(this.g, kind, x, y, z, variant); this.g.entities.add(m); return m; }
+  counts() { let pa = 0, ho = 0; for (const e of this.g.entities.list) if (e.isMob && !e.tamed) { if (hostile(e)) ho++; else pa++; } return { pa, ho }; }
   // начальное население при появлении чанка
   onChunk(c) {
     if (!this.enabled) return;
@@ -75,18 +77,29 @@ export class MobManager {
       if (!e.isMob || e.dead || e.noDespawn) continue;
       const d = Math.hypot(e.x - p.x, e.z - p.z);
       if (d > 90) { e.dead = true; continue; }
-      if (e.def.ai !== 'passive' && d > 36 && e.age > 20 && Math.random() < dt * 0.05) e.dead = true;
-      if (e.def.ai !== 'passive' && !e.def.burn && e.age > 40 && !e.target && g.sky.daylight > 0.9 && (g.world.getLight(Math.floor(e.x), Math.floor(e.y + 1), Math.floor(e.z)) >> 4) >= 14 && Math.random() < dt * 0.05) e.dead = true;
+      if (hostile(e) && d > 36 && e.age > 20 && Math.random() < dt * 0.05) e.dead = true;
+      if (hostile(e) && !e.def.burn && e.age > 40 && !e.target && g.sky.daylight > 0.9 && (g.world.getLight(Math.floor(e.x), Math.floor(e.y + 1), Math.floor(e.z)) >> 4) >= 14 && Math.random() < dt * 0.05) e.dead = true;
     }
   }
   serialize() {
     const g = this.g, p = g.player, out = [];
-    for (const e of g.entities.list) if (e.isMob && !e.dead && e.deathT === 0 && Math.hypot(e.x - p.x, e.z - p.z) < 64) out.push({ k: e.kind, x: e.x, y: e.y, z: e.z, hp: e.hp, sh: e.sheared, w: e.wool });
+    for (const e of g.entities.list) {
+      if (!e.isMob || e.dead || e.deathT !== 0 || (Math.hypot(e.x - p.x, e.z - p.z) >= 64 && !e.noDespawn)) continue;
+      const m = { k: e.kind, x: e.x, y: e.y, z: e.z, hp: e.hp, sh: e.sheared, w: e.wool };
+      if (e.def.variants) Object.assign(m, { v: e.variant, tm: e.tamed, st: e.sitting, lo: e.lost, nd: e.noDespawn, q: e.questId });
+      out.push(m);
+    }
+    for (const e of g.entities.list) if (e.type === 'carbot' && !e.dead) out.push(e.serialize());
     return { mobs: out, pop: [...this.popDone] };
   }
   load(d) {
     if (!d) return;
     this.popDone = new Set(d.pop || []);
-    for (const m of d.mobs || []) { const e = this.spawnMob(m.k, m.x, m.y, m.z); e.hp = m.hp; e.sheared = !!m.sh; if (m.w) e.wool = m.w; }
+    for (const m of d.mobs || []) {
+      if (m.k === 'carbot') { this.g.spawnCarbot(m.x, m.y, m.z, m.yaw, m.c, m.robot); continue; }
+      if (!this.kinds[m.k]) continue;
+      const e = this.spawnMob(m.k, m.x, m.y, m.z, m.v); e.hp = m.hp; e.sheared = !!m.sh; if (m.w) e.wool = m.w;
+      if (m.tm) { e.tamed = true; e.noDespawn = true; } e.sitting = !!m.st; e.lost = !!m.lo; if (m.nd) e.noDespawn = true; if (m.q) e.questId = m.q;
+    }
   }
 }

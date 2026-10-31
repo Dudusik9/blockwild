@@ -34,6 +34,9 @@ import { Sfx } from '../audio/sfx.js';
 import { Ambience } from '../audio/ambience.js';
 import { Storage } from '../save/storage.js';
 import { MobModel, Paint } from '../entity/mobmodel.js';
+import { Town } from '../world/town.js';
+import { Quests } from './quests.js';
+import { Carbot } from '../entity/carbot.js';
 
 export const IS_TOUCH = (typeof window !== 'undefined') && (('ontouchstart' in window) || (navigator.maxTouchPoints > 0)) &&
   ((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || new URLSearchParams(location.search).get('touch') === '1');
@@ -216,7 +219,8 @@ export class Game {
     this.player = new Player(this.world); this.player.mode = meta.mode || 'survival';
     this.gen = new Generator(meta.seed);
     this.inventory = new Inventory(); this.survival = new Survival(this); this.interaction = new Interaction(this);
-    this.entities.clear(); this.mobs = new MobManager(this);
+    this.entities.clear(); this.mobs = new MobManager(this); this.town = new Town(this);
+    this.quests?.dispose(); this.quests = new Quests(this);
     this.weather.dispose(); this.weather = new Weather(this);
     this.time = meta.time !== undefined ? meta.time : 1000; this.day = meta.day || 0; this.rain = 0; this.thunder = 0;
     this.torches.clear();
@@ -285,8 +289,26 @@ export class Game {
     for (const k of this.torches) { const [x, , z] = k.split(',').map(Number); if (x >= x0 && x < x0 + 16 && z >= z0 && z < z0 + 16) this.torches.delete(k); }
   }
   onHurt() { this.shake = Math.max(this.shake, 0.25); }
+  onPetTamed(pet) { this.quests?.onPetTamed(pet); }
+  onPetFed(pet) { this.quests?.onPetFed(pet); }
+  onTownBuilt(town) { this.quests?.onTownBuilt(town); }
+  onTownSite(site) { this.quests?.onTownBuilt(site); }
+  // ---------- машинка-робот ----------
+  spawnCarbot(x, y, z, yaw, color, robot) {
+    const c = new Carbot(this, x, y, z, yaw, color || ['red', 'blue', 'yellow'][(Math.random() * 3) | 0]);
+    if (robot) { c.mode = 'robot'; c.t = 1; c.setSize(); c.pose(); }
+    this.entities.add(c); return c;
+  }
+  nearestCar(r = 8) {
+    const p = this.player; if (p.riding) return p.riding;
+    let best = null, bd = r;
+    for (const e of this.entities.list) if (e.type === 'carbot' && !e.dead) { const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < bd) { bd = d; best = e; } }
+    return best;
+  }
+  transformCar() { const c = this.nearestCar(); if (c) c.transform(this); return !!c; }
   onDeath() {
     const p = this.player, inv = this.inventory;
+    if (p.riding) p.riding.dismount(this);
     for (const s of [...inv.slots, ...inv.armor]) if (s) this.dropItem(p.x, p.y + 1, p.z, s, [(Math.random() - 0.5) * 4, 4, (Math.random() - 0.5) * 4]);
     inv.clear();
     this.sfx.play('death');
@@ -354,7 +376,7 @@ export class Game {
     this.tickBlockEntities(dt);
     this.weather.update(dt);
     this.entities.update(dt);
-    if (this.state === 'playing') this.mobs.update(dt);
+    if (this.state === 'playing') { this.mobs.update(dt); this.town.update(dt); this.quests.update(dt); }
     this.ambience.update(dt);
     this.ambients(dt);
     this.autosave(dt);
@@ -367,7 +389,7 @@ export class Game {
     this.sfx.setListener(p.x, p.y + 1.6, p.z, p.yaw);
     this.hud.update(dt);
     this.container.update(dt);
-    this.slowT -= dt; if (this.slowT <= 0) { this.slowT = 0.3; this.chat.update(); }
+    this.slowT -= dt; if (this.slowT <= 0) { this.slowT = 0.3; this.chat.update(); this.touch?.setRobotVisible(!!this.nearestCar()); }
   }
   tickMenu(dt) {
     const c = this.menuCenter, w = this.world, t = this.clock;
@@ -475,12 +497,12 @@ export class Game {
     const pm = this.playerModel.group;
     if (this.view > 0) {
       const dir = new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
-      const sign = this.view === 1 ? 1 : -1; let dist = 4;
+      const sign = this.view === 1 ? 1 : -1; let dist = p.riding ? 5.5 : 4;
       const r2 = raycast(this.world, cam.position.x, cam.position.y, cam.position.z, -dir.x * sign, -dir.y * sign, -dir.z * sign, dist);
       if (r2.hit) dist = Math.max(0.6, r2.dist - 0.3);
       cam.position.x -= dir.x * sign * dist; cam.position.y -= dir.y * sign * dist; cam.position.z -= dir.z * sign * dist;
       if (this.view === 2) cam.rotation.set(-pitch, yaw + Math.PI, roll);
-      pm.visible = true; pm.position.set(p.x, p.y, p.z); pm.rotation.y = yaw + Math.PI;
+      pm.visible = !p.riding; pm.position.set(p.x, p.y, p.z); pm.rotation.y = yaw + Math.PI;
       pm.rotation.y = yaw;
       const sw = Math.sin(p.walkDist * 2.2) * 0.9 * Math.min(1, Math.hypot(p.vx, p.vz) / 3);
       const P = this.playerModel.parts;

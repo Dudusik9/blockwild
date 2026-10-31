@@ -30,6 +30,14 @@ export class Player {
   }
   update(dt, inp, time) {
     const world = this.world;
+    // за рулём машинки: управляет она, игрок едет вместе с ней
+    if (this.riding && this.riding.dead) this.riding = null;
+    if (this.riding) {
+      this.riding.drive(dt, inp, this);
+      this.moving = false; this.stepEvent = false; this.fell = 0; this.landed = 0; this.flying = false;
+      this.inWater = this.headInWater = this.inLava = this.headInLava = false; this.sneaking = false;
+      return;
+    }
     this.sneaking = inp.sneak && !this.flying;
     this.sneakAmt += ((this.sneaking ? 1 : 0) - this.sneakAmt) * Math.min(1, dt * 14);
     const f1 = this.fluidAt(0.1), f2 = this.fluidAt(0.9), fh = this.fluidAt(this.eye);

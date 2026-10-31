@@ -32,14 +32,18 @@ export class ItemDrop extends Entity {
     this.delay -= dt;
     // жидкость
     const inW = isLiquid(w.getBlock(Math.floor(this.x), Math.floor(this.y + 0.1), Math.floor(this.z)));
-    this.vy -= (inW ? -3 : 22) * dt;
+    if (!this.mag) this.vy -= (inW ? -3 : 22) * dt;
+    this.mag = false;
     if (inW) { this.vy *= 0.9; this.vx *= 0.9; this.vz *= 0.9; if (this.vy > 1.5) this.vy = 1.5; }
     // магнит
     if (p && g.state === 'playing' && this.delay <= 0) {
-      const dx = p.x - this.x, dy = p.y + 0.9 - this.y, dz = p.z - this.z, d = Math.hypot(dx, dy, dz);
-      if (d < 2.4 && g.inventory.canAdd(this.stack.id, 1)) {
-        const f = (1 - d / 2.4) * 28 * dt; this.vx += dx / d * f; this.vy += dy / d * f; this.vz += dz / d * f;
-        if (d < 0.9) {
+      const dx = p.x - this.x, dy = p.y + 0.5 - this.y, dz = p.z - this.z, d = Math.hypot(dx, dy, dz) || 1e-3;
+      if (d < 3 && g.inventory.canAdd(this.stack.id, 1)) {
+        this.mag = true;
+        const damp = Math.pow(0.08, dt); this.vx *= damp; this.vy *= damp; this.vz *= damp;
+        const f = (1.35 - d / 3) * 30 * dt; this.vx += dx / d * f; this.vy += dy / d * f; this.vz += dz / d * f;
+        // подбор по габаритам игрока: предмет на полу лежит на уровне ног
+        if (Math.hypot(dx, dz) < 1.0 && this.y > p.y - 1.0 && this.y < p.y + (p.h || 1.8)) {
           const left = g.inventory.add(this.stack.id, this.stack.count, this.stack.dmg || 0);
           g.sfx?.play('pop', { x: this.x, y: this.y, z: this.z }, 0.8);
           if (left <= 0) { this.dead = true; g.onPickup?.(this.stack); return; }

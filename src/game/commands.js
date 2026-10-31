@@ -17,6 +17,8 @@ const HELP = [
   ['/spawn <моб> [число]', 'призвать моба: ram, hen, boar, swamper, archer, bomber'],
   ['/setspawn', 'точка возрождения здесь'],
   ['/items [фильтр]', 'список названий предметов'],
+  ['/town', 'построить Городок спасателей перед собой'],
+  ['/quest [lost|tree|hungry|flag|on|off]', 'миссия спасателей: начать новую, включить или выключить'],
 ];
 
 export function runCommand(g, line) {
@@ -88,6 +90,21 @@ export function runCommand(g, line) {
     case 'items': {
       const f = (parts[0] || '').toLowerCase();
       log(ITEM_LIST.filter((i) => !f || i.name.includes(f) || i.title.toLowerCase().includes(f)).map((i) => i.name).join(', ').slice(0, 900), '#dddddd');
+      break;
+    }
+    case 'town': {
+      const cx = Math.round(p.x - Math.sin(p.yaw) * 30), cz = Math.round(p.z - Math.cos(p.yaw) * 30);
+      if (!g.town.chunksReady(cx, cz)) return err('Место ещё не прогрузилось — подойдите ближе');
+      g.town.build(cx, cz); log('Городок построен');
+      break;
+    }
+    case 'quest': {
+      const a = (parts[0] || '').toLowerCase();
+      if (a === 'off') { g.meta.questsOff = true; log('Миссии выключены'); break; }
+      if (a === 'on') { g.meta.questsOff = false; log('Миссии включены'); break; }
+      g.meta.questsOff = false;
+      const q = g.quests.st; q.active = null;
+      if (!g.quests.start(a || undefined)) err('Не получилось начать миссию здесь');
       break;
     }
     case 'biome': { const b = BIOMES[g.world.getBiome(Math.floor(p.x), Math.floor(p.z))]; log('Биом: ' + b.name); break; }

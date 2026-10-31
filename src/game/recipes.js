@@ -53,6 +53,8 @@ shaped('keg', 1, ['PSP', 'SPS', 'PSP'], { P: 'powder', S: 'sand' });
 shaped('shears', 1, ['.I', 'I.'], { I: 'iron_ingot' });
 shapeless('flint_steel', 1, ['iron_ingot', 'coal']);
 shapeless('mossy_cobble', 1, ['cobble', 'fern']);
+shapeless('dog_treat', 2, ['wheat', 'bone']);
+shaped('car_key', 1, ['.W.', 'WIW', 'C.C'], { W: 'wool_red', I: 'iron_ingot', C: 'coal' });
 // --- полублоки и лестницы
 for (const base of ['planks_oak', 'cobble', 'stone_brick', 'sandstone', 'planks_spruce', 'brick']) shaped('slab_' + base, 6, ['BBB'], { B: base });
 for (const base of ['planks_oak', 'cobble', 'stone_brick', 'sandstone']) shaped('stairs_' + base, 4, ['B..', 'BB.', 'BBB'], { B: base });

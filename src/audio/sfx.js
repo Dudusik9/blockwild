@@ -160,6 +160,17 @@ export class Sfx {
       case 'swamper': this.tone({ pos: P, f0: 95 * p, f1: 70, dur: 0.7, type: 'sawtooth', gain: g * 0.9, vib: 6, lp: 500 }); break;
       case 'archer': for (let i = 0; i < 4; i++) this.noise({ pos: P, type: 'highpass', f0: 3000, dur: 0.04, gain: g * 0.5, delay: i * 0.06 }); break;
       case 'bomber': this.noise({ pos: P, type: 'highpass', f0: 3800, dur: 1.4, gain: g * 0.7, attack: 0.3 }); break;
+      case 'kitten': // мяу: подъём и спад высоты
+        this.tone({ pos: P, f0: 620 * p, f1: 980 * p, dur: 0.16, type: 'triangle', gain: g * 0.55, lp: 2600, attack: 0.03 });
+        this.tone({ pos: P, f0: 980 * p, f1: 540 * p, dur: 0.34, type: 'triangle', gain: g * 0.5, lp: 2200, vib: 7, delay: 0.15 });
+        break;
+      case 'puppy': // гав-гав
+        for (let i = 0; i < 2; i++) {
+          this.tone({ pos: P, f0: 520 * p, f1: 330 * p, dur: 0.11, type: 'sawtooth', gain: g * 0.45, lp: 1600, delay: i * 0.2 });
+          this.noise({ pos: P, type: 'bandpass', f0: 900 * p, q: 1.2, dur: 0.08, gain: g * 0.3, delay: i * 0.2 });
+        }
+        break;
+      case 'purr': for (let i = 0; i < 3; i++) this.tone({ pos: P, f0: 48, f1: 44, dur: 0.45, type: 'sawtooth', gain: g * 0.35, lp: 320, vib: 22, attack: 0.08, delay: i * 0.5 }); break;
       case 'hurt': this.tone({ pos: P, f0: 260 * p, f1: 130, dur: 0.22, type: 'sawtooth', gain: g, lp: 900 }); break;
       case 'death': this.tone({ pos: P, f0: 240 * p, f1: 50, dur: 0.5, type: 'sawtooth', gain: g, lp: 800 }); break;
     }

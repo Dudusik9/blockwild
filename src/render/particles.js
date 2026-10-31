@@ -1,6 +1,7 @@
 // Частицы: единый инстансинг-пул, билборды (осколки блоков, дым, капли, пузыри, взрыв, пламя)
 import * as THREE from 'three';
 import { BLOCKS, SOLID } from '../world/blocks.js';
+import { TILE_INDEX } from './tilenames.js';
 
 const MAX = 3500;
 const VERT = /* glsl */`
@@ -111,6 +112,23 @@ export class Particles {
   }
   drip(x, y, z) { this.spawn(x, y, z, 0, 0, 0, 1.0, 0.05, 12, 0.5, 0.7, 1, 0.9, null, { coll: true }); }
   hurt(x, y, z, n = 8) { for (let i = 0; i < n; i++) this.spawn(x + (Math.random() - 0.5) * 0.5, y + Math.random() * 1.2, z + (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 2, Math.random() * 2, (Math.random() - 0.5) * 2, 0.5, 0.08, 10, 0.8, 0.1, 0.1, 1, null, { fade: 1 }); }
+  fullTile(tile) { const tx = tile & 15, ty = tile >> 4; return [(tx * 16 + 0.5) / 256, (ty * 16 + 0.5) / 256, (tx * 16 + 15.5) / 256, (ty * 16 + 15.5) / 256]; }
+  hearts(x, y, z, n = 6) {
+    const uv = this.fullTile(TILE_INDEX.fx_heart);
+    for (let i = 0; i < n; i++) this.spawn(x + (Math.random() - 0.5) * 0.7, y + Math.random() * 0.3, z + (Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.5, 0.9 + Math.random() * 0.7, (Math.random() - 0.5) * 0.5, 1.1 + Math.random() * 0.6, 0.16 + Math.random() * 0.06, -0.4, 1, 0.35, 0.55, 1, uv, { fade: 1, drag: 0.6 });
+  }
+  // праздничный салют из звёздочек
+  confetti(x, y, z, n = 40) {
+    const uv = this.fullTile(TILE_INDEX.fx_star), C = [[1, 0.85, 0.2], [1, 0.4, 0.4], [0.4, 0.8, 1], [0.5, 1, 0.5], [1, 0.55, 1]];
+    for (let i = 0; i < n; i++) {
+      const c = C[i % C.length], a = Math.random() * 6.283, s = 1 + Math.random() * 2.5;
+      this.spawn(x, y, z, Math.cos(a) * s, 4 + Math.random() * 4, Math.sin(a) * s, 1.6 + Math.random() * 0.8, 0.14 + Math.random() * 0.08, 6, c[0], c[1], c[2], 1, uv, { fade: 1, drag: 0.8 });
+    }
+  }
+  // маяк над целью миссии: звёздочки поднимаются столбиком
+  beacon(x, y, z) {
+    this.spawn(x + (Math.random() - 0.5) * 0.3, y, z + (Math.random() - 0.5) * 0.3, 0, 1.6, 0, 1.6, 0.22, -0.3, 1, 0.9, 0.25, 1, this.fullTile(TILE_INDEX.fx_star), { fade: 1, drag: 0.2 });
+  }
   poof(x, y, z, n = 10) { for (let i = 0; i < n; i++) this.spawn(x + (Math.random() - 0.5) * 0.6, y + Math.random() * 0.9, z + (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 1.5, Math.random() * 1.2, (Math.random() - 0.5) * 1.5, 0.7 + Math.random() * 0.5, 0.2, -0.2, 0.92, 0.92, 0.92, 0.7, null, { grow: 0.15 }); }
   explosion(x, y, z, power) {
     const n = Math.floor(30 + power * 12);

@@ -46,7 +46,10 @@ export const actions = {
     const key = x + ',' + y + ',' + z;
     const be = w.be.get(key);
     let drops = [];
-    if (!o.noDrops && !(this.player && this.player.creative && o.byPlayer)) drops = this.computeDrops(b, o.tool);
+    const creativeBreak = this.player && this.player.creative && o.byPlayer;
+    if (o.noDrops) { /* без выпадения */ }
+    else if (creativeBreak) { if (I[b.item] !== undefined && b.selectable && b.hardness >= 0) drops = [{ id: I[b.item], count: 1 }]; }
+    else drops = this.computeDrops(b, o.tool);
     if (o.dropChance !== undefined) drops = drops.filter(() => Math.random() < o.dropChance);
     // содержимое сундука/печи
     if (be) { for (const s of be.slots) if (s && !(this.player && this.player.creative && o.byPlayer && false)) drops.push({ id: s.id, count: s.count, dmg: s.dmg || 0 }); w.be.delete(key); }

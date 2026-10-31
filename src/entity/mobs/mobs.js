@@ -1,11 +1,11 @@
-// Мобы: рогатый баран, пятнистая курица, лесной кабан, болотник, костяной лучник, грибник-подрывник
+// Мобы: рогатый баран, пятнистая курица, лесной кабан, болотник, костяной лучник, грибник-подрывник; питомцы: котёнок, щенок-спасатель
 import * as THREE from 'three';
 import { Entity } from '../entity.js';
 import { MobModel, Paint, faceRects } from '../mobmodel.js';
 import { moveEntity } from '../../player/physics.js';
 import { findPath, canSee } from '../ai.js';
 import { isLiquid, isWater } from '../../world/blocks.js';
-import { I } from '../../game/items.js';
+import { I, getItem } from '../../game/items.js';
 import { lightBrightness } from '../items-drop.js';
 
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -124,21 +124,106 @@ const DEFS = {
     },
     drops: () => [[I.powder, rnd(0, 2)]],
   },
+  // ---- питомцы: приручаются лакомством, ходят следом, не получают урона
+  kitten: {
+    title: 'Котёнок', w: 0.45, h: 0.65, hp: 10, speed: 1.8, tw: 64, th: 32, ai: 'pet', snd: 'kitten', quad: true,
+    treats: ['fish', 'raw_chicken', 'cooked_chicken', 'egg'],
+    variants: [
+      { title: 'Рыжик', fur: '#e8924a', fur2: '#c06a28', belly: '#f6d8b0', eye: '#58b040', stripes: true },
+      { title: 'Дымок', fur: '#9a9aa4', fur2: '#6a6a76', belly: '#d8d8de', eye: '#d8b030', stripes: true },
+      { title: 'Снежок', fur: '#f4f2ee', fur2: '#e2ddd4', belly: '#ffffff', eye: '#4a90e0' },
+      { title: 'Носочек', fur: '#2e2e34', fur2: '#202024', belly: '#f2f2f2', eye: '#9ad040', paws: '#f2f2f2', tux: true },
+    ],
+    parts: [
+      { n: 'body', size: [5, 5, 11], uv: [0, 0], pivot: [0, 6.5, 0], off: [0, 0, 0] },
+      { n: 'head', size: [6, 5, 5], uv: [32, 0], pivot: [0, 9, 6], off: [0, 0, 2] },
+      { n: 'earL', size: [1, 2, 1], uv: [54, 0], pivot: [1.8, 11.5, 7], off: [0, 1, 0] }, { n: 'earR', size: [1, 2, 1], uv: [54, 0], pivot: [-1.8, 11.5, 7], off: [0, 1, 0] },
+      { n: 'tail', size: [1, 1, 7], uv: [0, 16], pivot: [0, 8.5, -5.5], off: [0, 0, -3.5] },
+      { n: 'legFL', size: [2, 4, 2], uv: [16, 16], pivot: [1.5, 4, 4], off: [0, -2, 0] }, { n: 'legFR', size: [2, 4, 2], uv: [16, 16], pivot: [-1.5, 4, 4], off: [0, -2, 0] },
+      { n: 'legBL', size: [2, 4, 2], uv: [16, 16], pivot: [1.5, 4, -4], off: [0, -2, 0] }, { n: 'legBR', size: [2, 4, 2], uv: [16, 16], pivot: [-1.5, 4, -4], off: [0, -2, 0] },
+    ],
+    paint(P, v) {
+      const B_ = P.box(0, 0, 5, 5, 11, v.fur, 0.06);
+      if (v.stripes) {
+        for (let z = 1; z < 11; z += 3) P.rect(B_.top[0], B_.top[1] + z, 5, 1, v.fur2);
+        for (const k of ['left', 'right']) for (let x = 1; x < 11; x += 3) P.rect(B_[k][0] + x, B_[k][1], 1, 3, v.fur2);
+      }
+      P.rect(B_.bottom[0], B_.bottom[1], 5, 11, v.belly);
+      if (v.tux) P.rect(B_.front[0], B_.front[1], 5, 5, v.belly);
+      const H = P.box(32, 0, 6, 5, 5, v.fur, 0.05);
+      paintFace(P, H, 'front', (x, y) => {
+        if (v.tux) P.rect(x + 1, y + 3, 4, 2, v.belly);
+        if (v.stripes) { P.px(x + 2, y, v.fur2); P.px(x + 3, y, v.fur2); }
+        P.rect(x + 1, y + 1, 1, 2, v.eye); P.rect(x + 4, y + 1, 1, 2, v.eye); P.px(x + 1, y + 2, '#151515'); P.px(x + 4, y + 2, '#151515');
+        P.rect(x + 2, y + 3, 2, 1, '#f08a9a'); P.px(x + 2, y + 4, '#5a3a3a'); P.px(x + 3, y + 4, '#5a3a3a');
+      });
+      const E = P.box(54, 0, 1, 2, 1, v.fur, 0); paintFace(P, E, 'front', (x, y) => P.px(x, y + 1, '#f0a0b0'));
+      P.box(0, 16, 1, 1, 7, v.fur, 0.06); if (v.stripes) for (let z = 1; z < 7; z += 2) P.px(1 + z, 16, v.fur2);
+      P.box(16, 16, 2, 4, 2, v.paws || v.fur, 0.05);
+    },
+    drops: () => [],
+  },
+  puppy: {
+    title: 'Щенок-спасатель', w: 0.6, h: 0.95, hp: 14, speed: 2.0, tw: 64, th: 48, ai: 'pet', snd: 'puppy', quad: true,
+    treats: ['dog_treat', 'bone', 'raw_pork', 'cooked_pork', 'raw_mutton', 'cooked_mutton', 'raw_chicken', 'cooked_chicken'],
+    variants: [
+      { title: 'Огонёк', fur: '#f4f2ee', fur2: '#222226', vest: '#d83a2a', hat: '#d83a2a', pack: '#b82a20', badge: '#ffd23a', snout: '#f4f2ee', spots: true },
+      { title: 'Дозор', fur: '#a8743a', fur2: '#3a2a1e', vest: '#2a5ad8', hat: '#2a4ab8', pack: '#2448a8', badge: '#ffd23a', snout: '#3a2a1e' },
+      { title: 'Кирпичик', fur: '#d8b88a', fur2: '#a08060', vest: '#f0c020', hat: '#f0c020', pack: '#d89a10', badge: '#3a3a3a', snout: '#f0e0c8' },
+    ],
+    parts: [
+      { n: 'body', size: [6, 6, 10], uv: [0, 0], pivot: [0, 8, 0], off: [0, 0, 0] },
+      { n: 'head', size: [6, 6, 6], uv: [32, 0], pivot: [0, 12, 6], off: [0, 0, 2] },
+      { n: 'snout', size: [3, 2, 2], uv: [0, 32], pivot: [0, 10.5, 11], off: [0, 0, 1] },
+      { n: 'earL', size: [2, 3, 1], uv: [56, 0], pivot: [3.5, 14.5, 7], off: [0, -1.5, 0] }, { n: 'earR', size: [2, 3, 1], uv: [56, 0], pivot: [-3.5, 14.5, 7], off: [0, -1.5, 0] },
+      { n: 'hat', size: [5, 2, 5], uv: [28, 16], pivot: [0, 15, 8], off: [0, 1, 0] },
+      { n: 'pack', size: [4, 3, 3], uv: [48, 16], pivot: [0, 11, -1], off: [0, 1.5, 0] },
+      { n: 'tail', size: [1, 1, 4], uv: [16, 16], pivot: [0, 10, -5], off: [0, 0, -2] },
+      { n: 'legFL', size: [2, 5, 2], uv: [0, 16], pivot: [1.8, 5, 3.5], off: [0, -2.5, 0] }, { n: 'legFR', size: [2, 5, 2], uv: [0, 16], pivot: [-1.8, 5, 3.5], off: [0, -2.5, 0] },
+      { n: 'legBL', size: [2, 5, 2], uv: [0, 16], pivot: [1.8, 5, -3.5], off: [0, -2.5, 0] }, { n: 'legBR', size: [2, 5, 2], uv: [0, 16], pivot: [-1.8, 5, -3.5], off: [0, -2.5, 0] },
+    ],
+    paint(P, v) {
+      const spots = (x, y, w, h, n) => { if (v.spots) for (let i = 0; i < n; i++) P.px(x + (P.r() * w | 0), y + (P.r() * h | 0), v.fur2); };
+      const B_ = P.box(0, 0, 6, 6, 10, v.fur, 0.06); spots(0, 0, 32, 16, 22);
+      P.rect(B_.top[0], B_.top[1] + 2, 6, 6, v.vest);
+      for (const k of ['left', 'right']) P.rect(B_[k][0] + 2, B_[k][1], 6, 4, v.vest);
+      P.rect(B_.front[0], B_.front[1], 6, 4, v.vest); P.rect(B_.front[0] + 2, B_.front[1] + 1, 2, 2, v.badge);
+      const H = P.box(32, 0, 6, 6, 6, v.fur, 0.05); spots(32, 0, 24, 12, 8);
+      paintFace(P, H, 'front', (x, y) => {
+        P.rect(x + 1, y + 2, 1, 2, '#1a1410'); P.rect(x + 4, y + 2, 1, 2, '#1a1410'); P.px(x + 1, y + 2, '#ffffff'); P.px(x + 4, y + 2, '#ffffff');
+      });
+      P.box(56, 0, 2, 3, 1, v.fur2, 0.05);
+      const S = P.box(0, 32, 3, 2, 2, v.snout, 0.04); paintFace(P, S, 'front', (x, y) => { P.rect(x + 1, y, 1, 1, '#141010'); P.px(x + 1, y + 1, '#c04050'); });
+      paintFace(P, S, 'top', (x, y) => P.px(x + 1, y + 1, '#141010'));
+      const Hat = P.box(28, 16, 5, 2, 5, v.hat, 0.04); paintFace(P, Hat, 'front', (x, y) => P.rect(x + 2, y, 1, 2, v.badge));
+      const Pk = P.box(48, 16, 4, 3, 3, v.pack, 0.06); paintFace(P, Pk, 'back', (x, y) => P.rect(x + 1, y + 1, 2, 1, v.badge));
+      P.box(16, 16, 1, 1, 4, v.fur, 0.05);
+      P.box(0, 16, 2, 5, 2, v.fur, 0.05); spots(0, 16, 8, 7, 4);
+    },
+    drops: () => [],
+  },
 };
 export const MOB_KINDS = Object.keys(DEFS);
 
-function getTex(kind) {
-  if (!texCache[kind]) { const d = DEFS[kind]; const P = new Paint(d.tw, d.th, kind.length * 997); d.paint(P); texCache[kind] = P.tex(); }
-  return texCache[kind];
+function getTex(kind, vi = 0) {
+  const key = kind + ':' + vi;
+  if (!texCache[key]) { const d = DEFS[kind]; const P = new Paint(d.tw, d.th, kind.length * 997 + vi); d.paint(P, d.variants ? d.variants[vi] : null); texCache[key] = P.tex(); }
+  return texCache[key];
 }
 
 export class Mob extends Entity {
-  constructor(g, kind, x, y, z) {
+  constructor(g, kind, x, y, z, variant) {
     super('mob'); this.g = g;
     const d = this.def = DEFS[kind]; this.kind = kind; this.isMob = true;
     this.w = d.w; this.h = d.h; this.x = x; this.y = y; this.z = z;
     this.hp = this.maxHp = d.hp; this.yaw = Math.random() * 6.28; this.walk = 0; this.walkAmt = 0;
-    this.model = new MobModel(d, getTex(kind)); this.mesh = this.model.group; this.mesh.position.set(x, y, z);
+    this.variant = d.variants ? (variant !== undefined && d.variants[variant] ? variant : (Math.random() * d.variants.length) | 0) : 0;
+    this.tamed = false; this.sitting = false; this.lost = false;
+    this.model = new MobModel(d, getTex(kind, this.variant)); this.mesh = this.model.group; this.mesh.position.set(x, y, z);
+    if (d.ai === 'pet') { // уши, нос и шапка поворачиваются вместе с головой
+      const P = this.model.parts, hd = P.head;
+      for (const k of ['earL', 'earR', 'snout', 'hat']) if (P[k]) { P[k].position.sub(hd.position); hd.add(P[k]); }
+    }
     this.hurtT = 0; this.deathT = 0; this.wishX = 0; this.wishZ = 0; this.speed = d.speed; this.aiT = Math.random() * 3; this.idle = true;
     this.path = null; this.pathT = 0; this.attackT = 0; this.panic = 0; this.lt = 0; this.burnT = 0; this.sheared = false; this.eggT = 240 + Math.random() * 300;
     this.fuse = -1; this.shootT = 1 + Math.random(); this.soundT = 5 + Math.random() * 10; this.wool = 'white'; this.noDespawn = false;
@@ -147,8 +232,14 @@ export class Mob extends Entity {
   }
   tintWool() { const c = { white: 0xffffff, black: 0x555560, red: 0xd88070 }[this.wool]; const w = this.model.parts.wool; if (w) w.userData.tint = c; }
   get eye() { return this.y + this.h * 0.85; }
+  get title() { return this.def.variants ? this.def.variants[this.variant].title : this.def.title; }
   hurt(dmg, kb, src) {
     if (this.deathT > 0) return;
+    if (this.def.ai === 'pet') { // питомцы неуязвимы: только подпрыгивают и пищат
+      if (this.onGround) this.vy = 4;
+      this.g.sfx?.play('mob:' + this.def.snd, { x: this.x, y: this.y, z: this.z }, 0.9, 1.25);
+      return;
+    }
     this.hp -= dmg; this.hurtT = 0.4; this.panic = this.def.ai === 'passive' ? 5 : 0;
     if (kb) { this.vx += kb.x * 5; this.vz += kb.z * 5; this.vy = 4.5; this.onGround = false; }
     this.g.sfx?.play('mob:hurt', { x: this.x, y: this.y, z: this.z }, 1);
@@ -161,6 +252,32 @@ export class Mob extends Entity {
     g.sfx?.play('mob:death', { x: this.x, y: this.y, z: this.z }, 1);
     for (const [id, n] of this.def.drops()) if (n > 0 && id) g.dropItem(this.x, this.y + 0.4, this.z, { id, count: n, dmg: 0 });
     if (this.kind === 'ram' && !this.sheared) g.dropItem(this.x, this.y + 0.4, this.z, { id: I['wool_' + this.wool], count: 1, dmg: 0 });
+  }
+  // ПКМ по мобу: true — действие выполнено
+  interact(g, stack) {
+    if (this.def.ai !== 'pet' || this.deathT > 0) return false;
+    const it = stack ? getItem(stack.id) : null, pos = { x: this.x, y: this.y + this.h, z: this.z };
+    if (this.lost) { this.tame(g); return true; } // потерявшегося достаточно обнять
+    if (it && this.def.treats.includes(it.name)) {
+      if (!g.player.creative) g.inventory.decrementSelected();
+      g.sfx?.play('eat', pos, 0.8);
+      if (!this.tamed) this.tame(g);
+      else g.particles?.hearts(this.x, this.y + this.h, this.z, 5);
+      g.onPetFed?.(this);
+      return true;
+    }
+    if (this.tamed) { this.sitting = !this.sitting; this.path = null; }
+    g.particles?.hearts(this.x, this.y + this.h, this.z, 3);
+    g.sfx?.play('mob:' + this.def.snd, pos, 1);
+    if (this.kind === 'kitten' && this.tamed) g.sfx?.play('mob:purr', pos, 0.8);
+    this.soundT = 6 + Math.random() * 10;
+    return true;
+  }
+  tame(g) {
+    this.tamed = true; this.noDespawn = true; this.sitting = false; this.lost = false;
+    g.particles?.hearts(this.x, this.y + this.h, this.z, 14);
+    g.sfx?.play('mob:' + this.def.snd, { x: this.x, y: this.y + this.h, z: this.z }, 1.1);
+    g.onPetTamed?.(this);
   }
   shear(g, stack) {
     if (this.kind !== 'ram' || this.sheared || this.deathT > 0) return false;
@@ -184,6 +301,7 @@ export class Mob extends Entity {
     this.wishX = 0; this.wishZ = 0; this.speedMul = 1;
     // ИИ
     if (d.ai === 'passive') this.aiPassive(dt, g);
+    else if (d.ai === 'pet') this.aiPet(dt, g, dist);
     else this.aiHostile(dt, g, dx, dz, dist, dy);
     // жидкость / горение
     const inW = isWater(w.getBlock(Math.floor(this.x), Math.floor(this.y + 0.3), Math.floor(this.z)));
@@ -217,7 +335,10 @@ export class Mob extends Entity {
     this.animate(dt, g, dist);
     // звук
     this.soundT -= dt;
-    if (this.soundT <= 0) { this.soundT = 6 + Math.random() * 14; if (dist < 24) g.sfx?.play('mob:' + d.snd, { x: this.x, y: this.y + 1, z: this.z }, 0.8); }
+    if (this.soundT <= 0) {
+      this.soundT = this.lost ? 2.5 + Math.random() * 2 : 6 + Math.random() * 14;
+      if (dist < (this.lost ? 48 : 24)) g.sfx?.play('mob:' + d.snd, { x: this.x, y: this.y + 1, z: this.z }, this.lost ? 1.2 : 0.8);
+    }
     if (this.kind === 'hen') { this.eggT -= dt; if (this.eggT <= 0) { this.eggT = 240 + Math.random() * 300; g.dropItem(this.x, this.y + 0.3, this.z, { id: I.egg, count: 1, dmg: 0 }); g.sfx?.play('mob:hen', { x: this.x, y: this.y, z: this.z }); } }
     if (this.kind === 'ram' && this.sheared) { this.woolT -= dt; if (this.woolT <= 0) this.sheared = false; }
     // освещение
@@ -240,6 +361,60 @@ export class Mob extends Entity {
       this.wishX = this.fleeDir[0] / fl; this.wishZ = this.fleeDir[1] / fl; this.speedMul = 1.9;
     } else this.wander(dt);
   }
+  aiPet(dt, g, dist) {
+    const p = g.player;
+    this.yawLook = Math.atan2(p.x - this.x, p.z - this.z);
+    if (this.sitting) { this.path = null; return; }
+    if (this.tamed) {
+      // застрял или отстал — прыжок к игроку
+      const moved = Math.hypot(this.x - (this.lastX ?? this.x), this.z - (this.lastZ ?? this.z)) / Math.max(dt, 1e-3);
+      this.lastX = this.x; this.lastZ = this.z;
+      this.stuckT = dist > 5 && moved < 0.4 ? (this.stuckT || 0) + dt : 0;
+      if ((dist > 24 || this.stuckT > 2.5) && p.onGround && !p.flying && this.teleportNear(g)) { this.stuckT = 0; return; }
+      if (dist > 3.2) this.goTo(dt, g, p.x, p.y, p.z, dist > 10 ? 2.8 : 1.6);
+      else this.path = null;
+      return;
+    }
+    // дикий: идёт к игроку, если у того в руке лакомство
+    const st = g.inventory.held, it = st ? getItem(st.id) : null;
+    if (it && this.def.treats.includes(it.name) && dist < 8) { if (dist > 1.6) this.goTo(dt, g, p.x, p.y, p.z, 1.2); return; }
+    if (!this.lost) this.wander(dt); // потерявшийся сидит на месте и зовёт
+  }
+  // прыжок к игроку, если тот убежал далеко
+  teleportNear(g) {
+    const p = g.player, w = g.world;
+    const free = (x, y, z) => !SOLID[w.getBlock(x, y, z)] && !SOLID[w.getBlock(x, y + 1, z)] && SOLID[w.getBlock(x, y - 1, z)];
+    // за спиной игрока, затем вокруг, в крайнем случае — у ног
+    const spots = [];
+    for (const r of [1.6, 1.1]) for (let i = 0; i < 8; i++) { const a = p.yaw + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.6; spots.push([p.x + Math.sin(a) * r, p.z + Math.cos(a) * r]); }
+    spots.push([p.x, p.z]);
+    const py = Math.floor(p.y + 0.01);
+    for (const [x, z] of spots) {
+      const bx = Math.floor(x), bz = Math.floor(z);
+      for (const by of [py, py + 1, py - 1, py - 2]) {
+        if (!free(bx, by, bz)) continue;
+        this.x = bx + 0.5; this.y = by; this.z = bz + 0.5; this.vx = this.vy = this.vz = 0; this.path = null;
+        g.particles?.poof(this.x, this.y, this.z, 6);
+        return true;
+      }
+    }
+    return false;
+  }
+  // движение к точке: напрямую или по A*
+  goTo(dt, g, tx, ty, tz, mul) {
+    this.pathT -= dt;
+    const dd = Math.hypot(tx - this.x, tz - this.z);
+    if (this.hitX || this.hitZ || dd > 6 && (!this.path || this.pathT <= 0)) {
+      if (this.pathT <= 0 && g.pathBudget > 0) { g.pathBudget--; this.path = findPath(g.world, this.x, this.y, this.z, tx, ty, tz, 400); this.pathT = 1.0; }
+    }
+    let gx = tx, gz = tz;
+    if (this.path && this.path.length) {
+      const n = this.path[0]; if (Math.hypot(n.x - this.x, n.z - this.z) < 0.5) this.path.shift();
+      if (this.path.length) { gx = this.path[0].x; gz = this.path[0].z; if (this.path[0].y > this.y + 0.6 && this.onGround) this.vy = 8.4; }
+    }
+    const l = Math.hypot(gx - this.x, gz - this.z) || 1;
+    this.wishX = (gx - this.x) / l; this.wishZ = (gz - this.z) / l; this.speedMul = mul;
+  }
   aiHostile(dt, g, dx, dz, dist, dy) {
     const p = g.player, w = g.world, d = this.def;
     this.attackT -= dt; this.aggro = Math.max(0, (this.aggro || 0) - dt);
@@ -248,21 +423,7 @@ export class Mob extends Entity {
     const sees = targetable && dist < range && Math.abs(dy) < 12 && (dist < 5 || canSee(w, this.x, this.eye, this.z, p.x, p.y + 1.5, p.z));
     this.target = sees;
     if (!sees) { this.fuse = -1; this.path = null; this.wander(dt); return; }
-    const toward = (tx, tz, mul) => {
-      this.pathT -= dt;
-      const dd = Math.hypot(tx - this.x, tz - this.z);
-      // прямое движение или A*
-      if (this.hitX || this.hitZ || dd > 6 && (!this.path || this.pathT <= 0)) {
-        if (this.pathT <= 0 && g.pathBudget > 0) { g.pathBudget--; this.path = findPath(w, this.x, this.y, this.z, tx, p.y, tz, 400); this.pathT = 1.0; }
-      }
-      let gx = tx, gz = tz;
-      if (this.path && this.path.length) {
-        const n = this.path[0]; if (Math.hypot(n.x - this.x, n.z - this.z) < 0.5) this.path.shift();
-        if (this.path.length) { gx = this.path[0].x; gz = this.path[0].z; if (this.path[0].y > this.y + 0.6 && this.onGround) this.vy = 8.4; }
-      }
-      const l = Math.hypot(gx - this.x, gz - this.z) || 1;
-      this.wishX = (gx - this.x) / l; this.wishZ = (gz - this.z) / l; this.speedMul = mul;
-    };
+    const toward = (tx, tz, mul) => this.goTo(dt, g, tx, p.y, tz, mul);
     if (d.ai === 'melee') {
       toward(p.x, p.z, 1.15);
       if (dist < 1.4 && Math.abs(dy) < 1.6 && this.attackT <= 0) { this.attackT = 1.0; g.survival.damage(d.dmg + (Math.random() < 0.3 ? 1 : 0), 'болотник', { x: dx / (dist || 1), z: dz / (dist || 1) }); this.armUp = 0.3; }
@@ -301,6 +462,17 @@ export class Mob extends Entity {
     let look = 0;
     if (d.ai !== 'passive' && this.target && this.yawLook !== undefined) { let df = this.yawLook - this.yaw; while (df > Math.PI) df -= 6.283; while (df < -Math.PI) df += 6.283; look = Math.max(-0.8, Math.min(0.8, df)); }
     if (d.quad) { P.legFL.rotation.x = sw; P.legBR.rotation.x = sw; P.legFR.rotation.x = -sw; P.legBL.rotation.x = -sw; }
+    if (d.ai === 'pet') {
+      const sit = this.sitting ? 1 : 0;
+      P.body.rotation.x = -0.4 * sit; if (P.pack) P.pack.rotation.x = -0.4 * sit;
+      if (sit) { P.legBL.rotation.x = P.legBR.rotation.x = -1.3; P.legFL.rotation.x = P.legFR.rotation.x = 0.1; }
+      const happy = this.tamed && dist < 5;
+      P.tail.rotation.x = (this.kind === 'kitten' ? -0.9 : -0.6) + sit * 0.7;
+      P.tail.rotation.y = Math.sin(this.age * (happy ? 14 : 4)) * (happy ? 0.6 : 0.25);
+      let df = (this.yawLook || 0) - this.yaw; while (df > Math.PI) df -= 6.283; while (df < -Math.PI) df += 6.283;
+      const hl = dist < 6 ? Math.max(-0.9, Math.min(0.9, df)) : 0;
+      P.head.rotation.y = hl;
+    }
     else if (this.kind === 'hen') { P.legL.rotation.x = sw; P.legR.rotation.x = -sw; P.wingL.rotation.z = -(this.onGround ? 0.05 : 1) ; P.wingR.rotation.z = (this.onGround ? 0.05 : 1); P.head.position.z = 4 / 16 + Math.max(0, Math.sin(this.walk * 2)) * 0.02 * this.walkAmt; }
     else if (d.biped) {
       P.legL.rotation.x = sw; P.legR.rotation.x = -sw;

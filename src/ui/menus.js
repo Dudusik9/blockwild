@@ -89,7 +89,8 @@ export class Menus {
     const f = h('div', 'form');
     f.innerHTML = `<label>Название<input id="nw-name" value="Мир ${Math.floor(Math.random() * 900 + 100)}" maxlength="30"></label>
       <label>Seed (пусто — случайный)<input id="nw-seed" placeholder="например 12345 или любой текст"></label>
-      <label>Режим<select id="nw-mode"><option value="survival">Выживание</option><option value="creative">Творческий</option></select></label>`;
+      <label>Режим<select id="nw-mode"><option value="survival">Выживание</option><option value="creative">Творческий</option></select></label>
+      <label>Городок и миссии спасателей<select id="nw-kids"><option value="1">Да</option><option value="0">Нет</option></select></label>`;
     s.appendChild(f);
     f.querySelectorAll('input').forEach((i) => i.addEventListener('keydown', (e) => e.stopPropagation()));
     const bar = h('div', 'btn-row');
@@ -100,6 +101,7 @@ export class Menus {
       const seed = st ? seedFromString(st) : Math.floor(Math.random() * 2147483647) - 1073741824;
       const mode = f.querySelector('#nw-mode').value;
       const meta = { id: 'w' + Date.now().toString(36), name, seed, mode, created: Date.now(), lastPlayed: Date.now() };
+      if (f.querySelector('#nw-kids').value === '0') { meta.noTown = true; meta.questsOff = true; }
       try { await g.storage.open(); await g.storage.saveWorld(meta); } catch (e) { /* без сохранений */ }
       g.startWorld(meta);
     }, 'green'));

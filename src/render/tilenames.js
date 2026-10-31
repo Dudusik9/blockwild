@@ -25,6 +25,8 @@ for (let i = 0; i < 8; i++) n.push('wheat_' + i);
 n.push('i_stick', 'i_coal', 'i_charcoal', 'i_copper_ingot', 'i_iron_ingot', 'i_gold_ingot', 'i_crystal', 'i_clay_ball', 'i_brick',
   'i_apple', 'i_bread', 'i_wheat', 'i_seeds', 'i_raw_mutton', 'i_cooked_mutton', 'i_raw_chicken', 'i_cooked_chicken', 'i_raw_pork', 'i_cooked_pork',
   'i_egg', 'i_feather', 'i_hide', 'i_bone', 'i_powder', 'i_shears', 'i_flint_steel', 'i_arrow');
+// питомцы, машинка, эффекты
+n.push('i_fish', 'i_dog_treat', 'i_spawn_kitten', 'i_spawn_puppy', 'i_car_key', 'fx_heart', 'fx_star');
 for (const t of TIERS) for (const k of TOOLS) n.push('i_' + t + '_' + k);
 for (const m of ARMOR_MATS) for (const p of ARMOR_PARTS) n.push('i_' + m + '_' + p);
 export const WATER_BASE = 240, LAVA_BASE = 248;

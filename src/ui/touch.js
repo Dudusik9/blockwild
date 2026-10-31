@@ -27,6 +27,7 @@ export class TouchControls {
     mk('inv', '🎒', () => { if (game.uiOpen) game.closeUI(); else if (game.state === 'playing') game.openUI('inventory'); });
     mk('chat', '💬', () => { if (game.state === 'playing' && !game.uiOpen) game.openChat(''); });
     mk('pause', '⏸', () => game.pause());
+    this.bRobot = mk('robot hidden', '🤖', () => { if (game.state === 'playing' && !game.uiOpen) game.transformCar(); });
     this.bFs = mk('fs', '⛶', () => this.fullscreen());
     if (!document.documentElement.requestFullscreen && !document.documentElement.webkitRequestFullscreen) this.bFs.classList.add('hidden');
     this.hint = h('div', 'rotate-hint', '<div>📱↻<br>Для удобной игры поверните устройство горизонтально<br><small>(нажмите, чтобы скрыть)</small></div>');
@@ -49,6 +50,7 @@ export class TouchControls {
     this.root.classList.toggle('hidden', !v); if (!v) this.releaseAll();
     if (v && !this.hintShown) { this.hintShown = true; this.hint.classList.remove('gone'); setTimeout(() => this.hint.classList.add('gone'), 4500); }
   }
+  setRobotVisible(v) { this.bRobot.classList.toggle('hidden', !v); }
   setUIMode(on, menu) { this.root.classList.toggle('uimode', !!on); if (on) this.releaseAll(); if (menu) this.root.classList.toggle('hidden', !!on); else if (!on && this.g.state === 'playing') this.root.classList.remove('hidden'); }
   releaseAll() {
     const c = this.g.controls; for (const k of this.dirKeys) c.keys.delete(k); c.keys.delete('Space'); c.mouse[0] = false; c.mouse[2] = false; c.sprintToggle = false;

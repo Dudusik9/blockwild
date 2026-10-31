@@ -38,6 +38,7 @@ export class Interaction {
     // хотбар
     if (c.wheel) { inv.selected = ((inv.selected + c.wheel) % 9 + 9) % 9; }
     for (let i = 0; i < 9; i++) if (c.wasPressed('Digit' + (i + 1))) inv.selected = i;
+    if (c.wasPressed('KeyR')) g.transformCar(); // превращение машинки-робота
     if (c.wasPressed('KeyQ')) {
       const st = inv.slots[inv.selected];
       if (st) {
@@ -206,6 +207,16 @@ export class Interaction {
         return true;
       }
       if (nm === 'flint_steel') return false;
+      // призыв питомца / машинки
+      if (it.spawn) {
+        const x = t.x + t.nx + 0.5, y = t.y + t.ny, z = t.z + t.nz + 0.5;
+        if (SOLID[w.getBlock(Math.floor(x), Math.floor(y), Math.floor(z))]) return false;
+        if (it.spawn === 'carbot') g.spawnCarbot(x, y, z, p.yaw + Math.PI);
+        else g.mobs.spawnMob(it.spawn, x, y, z);
+        g.particles?.poof(x, y, z, 10);
+        if (!p.creative) g.inventory.decrementSelected();
+        return true;
+      }
     }
     if (it.food || it.tool || it.armor || nm === 'flint_steel') {
       // экипировка брони по ПКМ

@@ -33,7 +33,7 @@ export class EntityManager {
   raycast(ox, oy, oz, dx, dy, dz, maxD, filter) {
     let best = null, bt = maxD;
     for (const e of this.list) {
-      if (!e.isMob || e.dead || (filter && !filter(e))) continue;
+      if (!(e.isMob || e.clickable) || e.dead || (filter && !filter(e))) continue;
       const hw = e.w / 2 + 0.05;
       const lo = [e.x - hw, e.y, e.z - hw], hi = [e.x + hw, e.y + e.h, e.z + hw], o = [ox, oy, oz], d = [dx, dy, dz];
       let tmin = 0, tmax = bt, ok = true;
