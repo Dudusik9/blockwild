@@ -76,7 +76,7 @@ export class Menus {
     for (const w of worlds) {
       const row = h('div', 'world-row');
       const d = new Date(w.lastPlayed || w.created);
-      row.appendChild(h('div', 'wname', `<b>${w.name.replace(/</g, '&lt;')}</b><br><span class="dim">seed ${w.seed} · ${w.mode === 'creative' ? 'творческий' : 'выживание'} · ${d.toLocaleString('ru-RU')}</span>`));
+      row.appendChild(h('div', 'wname', `<b>${w.name.replace(/</g, '&lt;')}</b><br><span class="dim">seed ${w.seed} · ${w.mode === 'creative' ? 'творческий' : 'выживание'}${w.worldType === 'city' ? ' · город' : ''} ·${d.toLocaleString('ru-RU')}</span>`));
       const b = h('div', 'wbtn');
       b.appendChild(this.btn('Играть', () => g.startWorld(w), 'green'));
       b.appendChild(this.btn('Удалить', async () => { if (confirm('Удалить мир «' + w.name + '»?')) { await g.storage.deleteWorld(w.id); this.worlds(); } }, 'red'));
@@ -90,7 +90,7 @@ export class Menus {
     f.innerHTML = `<label>Название<input id="nw-name" value="Мир ${Math.floor(Math.random() * 900 + 100)}" maxlength="30"></label>
       <label>Seed (пусто — случайный)<input id="nw-seed" placeholder="например 12345 или любой текст"></label>
       <label>Режим<select id="nw-mode"><option value="survival">Выживание</option><option value="creative">Творческий</option></select></label>
-      <label>Городок и миссии спасателей<select id="nw-kids"><option value="1">Да</option><option value="0">Нет</option></select></label>`;
+      <label>Для малышей<select id="nw-kids"><option value="city">Город спасателей — плоский бесконечный город</option><option value="1">Городок и миссии в обычном мире</option><option value="0">Нет</option></select></label>`;
     s.appendChild(f);
     f.querySelectorAll('input').forEach((i) => i.addEventListener('keydown', (e) => e.stopPropagation()));
     const bar = h('div', 'btn-row');
@@ -101,7 +101,9 @@ export class Menus {
       const seed = st ? seedFromString(st) : Math.floor(Math.random() * 2147483647) - 1073741824;
       const mode = f.querySelector('#nw-mode').value;
       const meta = { id: 'w' + Date.now().toString(36), name, seed, mode, created: Date.now(), lastPlayed: Date.now() };
-      if (f.querySelector('#nw-kids').value === '0') { meta.noTown = true; meta.questsOff = true; }
+      const kids = f.querySelector('#nw-kids').value;
+      if (kids === '0') { meta.noTown = true; meta.questsOff = true; }
+      if (kids === 'city') meta.worldType = 'city';
       try { await g.storage.open(); await g.storage.saveWorld(meta); } catch (e) { /* без сохранений */ }
       g.startWorld(meta);
     }, 'green'));
@@ -132,6 +134,7 @@ export class Menus {
     slider('Ограничение FPS (0 — без)', 'fpsLimit', 0, 120, 10, (v) => (v === 0 ? '∞' : v));
     slider('Разрешение (pixel ratio)', 'pixelRatio', 0.5, 2, 0.25, (v) => v.toFixed(2));
     toggle('Ambient occlusion', 'ao'); toggle('Плавное освещение', 'smoothLight'); toggle('Облака', 'clouds'); toggle('Частицы', 'particles'); toggle('Покачивание камеры', 'bobbing');
+    toggle('Автопрыжок на ступеньку', 'autoJump'); toggle('Подсказки управления (планшет)', 'controlHints');
     const bar = h('div', 'btn-row'); bar.appendChild(this.btn('Готово', () => { g.applySettings(); this.show(this.back === 'pause' ? 'pause' : 'main'); })); s.appendChild(bar);
   }
   pause() {

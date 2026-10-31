@@ -43,9 +43,9 @@ export class Chunk {
 }
 
 export class World extends Emitter {
-  constructor({ seed, scene, materials, settings, storage = null, worldId = null }) {
+  constructor({ seed, scene, materials, settings, storage = null, worldId = null, city = false }) {
     super();
-    this.seed = seed; this.scene = scene; this.materials = materials; this.settings = settings;
+    this.seed = seed; this.city = !!city; this.scene = scene; this.materials = materials; this.settings = settings;
     this.storage = storage; this.worldId = worldId;
     this.chunks = new Map(); this.be = new Map();
     this.group = new THREE.Group(); scene.add(this.group);
@@ -199,14 +199,14 @@ export class World extends Emitter {
     this.chunks.set(key(cx, cz), c); this._lk = -1;
     const k = key(cx, cz);
     const submitGen = () => {
-      const ok = this.genPool.submit({ type: 'gen', id: k, cx, cz, seed: this.seed }, [], (res) => this.onGen(c, res));
+      const ok = this.genPool.submit({ type: 'gen', id: k, cx, cz, seed: this.seed, city: this.city }, [], (res) => this.onGen(c, res));
       if (!ok) { this.chunks.delete(k); this._lk = -1; }
     };
     if (this.storage && this.savedKeys.has(this.worldId + ':' + cx + ',' + cz)) {
       this.storage.loadChunk(this.worldId, cx, cz).then((data) => {
         if (this.chunks.get(k) !== c) return;
         if (data) this.initChunkData(c, data.blocks, null, null, null, false, data);
-        else { if (!this.genPool.submit({ type: 'gen', id: k, cx, cz, seed: this.seed }, [], (res) => this.onGen(c, res))) { this.chunks.delete(k); this._lk = -1; } }
+        else { if (!this.genPool.submit({ type: 'gen', id: k, cx, cz, seed: this.seed, city: this.city }, [], (res) => this.onGen(c, res))) { this.chunks.delete(k); this._lk = -1; } }
       });
     } else submitGen();
   }

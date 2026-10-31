@@ -57,6 +57,9 @@ export class Town {
     for (const r of [30, 38, 46, 56, 66]) for (let i = 0; i < 16; i++) {
       const a = (i / 16) * Math.PI * 2, cx = Math.round(sp.x + Math.cos(a) * r), cz = Math.round(sp.z + Math.sin(a) * r);
       if (this.footprintChunks(cx, cz).some(([x, z]) => saved.has(wid + ':' + x + ',' + z))) continue;
+      // спавн и игрок не должны попасть под выравнивание площадки
+      const inside = (px, pz) => px > cx + X0 - MARGIN - 4 && px < cx + X1 + MARGIN + 4 && pz > cz + Z0 - MARGIN - 4 && pz < cz + Z1 + MARGIN + 4;
+      if (inside(sp.x, sp.z) || inside(g.player.x, g.player.z)) continue;
       let lo = 999, hi = -1, bad = 0;
       for (let dx = X0; dx <= X1; dx += 4) for (let dz = Z0; dz <= Z1; dz += 4) {
         g.gen.sample(cx + dx, cz + dz, o);

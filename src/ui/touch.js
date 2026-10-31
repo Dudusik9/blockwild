@@ -28,6 +28,12 @@ export class TouchControls {
     mk('chat', '💬', () => { if (game.state === 'playing' && !game.uiOpen) game.openChat(''); });
     mk('pause', '⏸', () => game.pause());
     this.bRobot = mk('robot hidden', '🤖', () => { if (game.state === 'playing' && !game.uiOpen) game.transformCar(); });
+    // полупрозрачные стикеры-подсказки: где джойстик, что делает касание справа, как выйти из машинки
+    this.ghost = h('div', 'stk ghost-joy', '<div class="gk"></div><b class="ga u">▲</b><b class="ga d">▼</b><b class="ga l">◀</b><b class="ga r">▶</b>');
+    this.hintR = h('div', 'stk stk-right', '<div><span>👆</span><small>🧱</small></div><div><span>✊</span><small>⛏️</small></div>');
+    this.hintExit = h('div', 'stk stk-exit hidden', '🚗⤵');
+    for (const e of [this.ghost, this.hintR, this.hintExit]) this.root.appendChild(e);
+    this.setHints(!!game.settings.controlHints);
     this.bFs = mk('fs', '⛶', () => this.fullscreen());
     if (!document.documentElement.requestFullscreen && !document.documentElement.webkitRequestFullscreen) this.bFs.classList.add('hidden');
     this.hint = h('div', 'rotate-hint', '<div>📱↻<br>Для удобной игры поверните устройство горизонтально<br><small>(нажмите, чтобы скрыть)</small></div>');
@@ -51,10 +57,12 @@ export class TouchControls {
     if (v && !this.hintShown) { this.hintShown = true; this.hint.classList.remove('gone'); setTimeout(() => this.hint.classList.add('gone'), 4500); }
   }
   setRobotVisible(v) { this.bRobot.classList.toggle('hidden', !v); }
+  setRiding(v) { this.hintExit.classList.toggle('hidden', !v); }
+  setHints(v) { this.root.classList.toggle('nohints', !v); }
   setUIMode(on, menu) { this.root.classList.toggle('uimode', !!on); if (on) this.releaseAll(); if (menu) this.root.classList.toggle('hidden', !!on); else if (!on && this.g.state === 'playing') this.root.classList.remove('hidden'); }
   releaseAll() {
     const c = this.g.controls; for (const k of this.dirKeys) c.keys.delete(k); c.keys.delete('Space'); c.mouse[0] = false; c.mouse[2] = false; c.sprintToggle = false;
-    this.joy.classList.add('hidden'); this.look = null; this.joyT = null;
+    this.joy.classList.add('hidden'); this.ghost.classList.remove('hidden'); this.look = null; this.joyT = null;
   }
   fullscreen() {
     const d = document.documentElement;
@@ -70,6 +78,7 @@ export class TouchControls {
       if (t.clientX < W * 0.42 && this.joyT === null) {
         this.joyT = { id: t.identifier, x: t.clientX, y: t.clientY };
         this.joy.style.left = t.clientX + 'px'; this.joy.style.top = t.clientY + 'px'; this.joy.classList.remove('hidden'); this.knob.style.transform = 'translate(0,0)';
+        this.ghost.classList.add('hidden');
       } else if (this.look === null) {
         this.look = { id: t.identifier, x: t.clientX, y: t.clientY, t0: performance.now(), moved: false, hold: false };
         this.look.timer = setTimeout(() => { if (this.look && !this.look.moved) { this.look.hold = true; c.mouse[0] = true; c.mousePressed[0] = true; } }, 320);
@@ -99,7 +108,7 @@ export class TouchControls {
     const c = this.g.controls;
     for (const t of e.changedTouches) {
       if (this.joyT && t.identifier === this.joyT.id) {
-        for (const k of this.dirKeys) c.keys.delete(k); c.sprintToggle = false; this.joyT = null; this.joy.classList.add('hidden');
+        for (const k of this.dirKeys) c.keys.delete(k); c.sprintToggle = false; this.joyT = null; this.joy.classList.add('hidden'); this.ghost.classList.remove('hidden');
       } else if (this.look && t.identifier === this.look.id) {
         const L = this.look; clearTimeout(L.timer); this.look = null;
         if (L.hold) c.mouse[0] = false;

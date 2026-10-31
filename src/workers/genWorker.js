@@ -1,10 +1,11 @@
 // Воркер генерации чанков
 import { Generator } from '../world/generator.js';
-let gen = null, gseed = null;
+let gen = null, gkey = null;
 self.onmessage = (e) => {
   const m = e.data;
   if (m.type === 'gen') {
-    if (!gen || gseed !== m.seed) { gen = new Generator(m.seed); gseed = m.seed; }
+    const k = m.seed + ':' + (m.city ? 'city' : '');
+    if (!gen || gkey !== k) { gen = new Generator(m.seed, { city: !!m.city }); gkey = k; }
     const r = gen.generate(m.cx, m.cz);
     // обрезаем до maxY+2 рядов, чтобы пересылать меньше
     const rows = Math.min(256, r.maxY + 2);

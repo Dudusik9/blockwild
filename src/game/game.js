@@ -37,6 +37,7 @@ import { MobModel, Paint } from '../entity/mobmodel.js';
 import { Town } from '../world/town.js';
 import { Quests } from './quests.js';
 import { Carbot } from '../entity/carbot.js';
+import { cityRiver, CITY_G } from '../world/city.js';
 
 export const IS_TOUCH = (typeof window !== 'undefined') && (('ontouchstart' in window) || (navigator.maxTouchPoints > 0)) &&
   ((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || new URLSearchParams(location.search).get('touch') === '1');
@@ -44,6 +45,7 @@ export const IS_TOUCH = (typeof window !== 'undefined') && (('ontouchstart' in w
 export const DEFAULT_SETTINGS = {
   renderDistance: IS_TOUCH ? 4 : 8, fov: 70, sensitivity: 1.0, masterVolume: 0.7, musicVolume: 0.35,
   ao: true, clouds: true, particles: true, smoothLight: true, fpsLimit: 0, bobbing: true, pixelRatio: IS_TOUCH ? 1 : 1.5,
+  autoJump: IS_TOUCH, controlHints: IS_TOUCH,
 };
 
 const PLAYER_DEF = {
@@ -133,6 +135,8 @@ export class Game {
   saveSettings() { try { localStorage.setItem('bw_settings', JSON.stringify(this.settings)); } catch (e) { /* ok */ } }
   applySettings() {
     this.sfx.applyVolumes(); this.particles.enabled = this.settings.particles;
+    if (this.player) this.player.autoJump = !!this.settings.autoJump;
+    this.touch?.setHints(!!this.settings.controlHints);
     this.resize(); if (this.world) this.world.remeshAll();
     this.saveSettings();
   }
@@ -208,7 +212,8 @@ export class Game {
     this.meta = meta;
     const saved = new Set();
     try { for (const k of await this.storage.listChunkKeys(meta.id)) saved.add(k); } catch (e) { /* нет БД */ }
-    this.world = new World({ seed: meta.seed, scene: this.scene, materials: this.materials, settings: this.settings, storage: this.storage.db ? this.storage : null, worldId: meta.id });
+    const city = meta.worldType === 'city';
+    this.world = new World({ seed: meta.seed, scene: this.scene, materials: this.materials, settings: this.settings, storage: this.storage.db ? this.storage : null, worldId: meta.id, city });
     this.world.savedKeys = saved;
     this.particles.world = this.world;
     this.world.on('blockchange', (x, y, z, o, n, opts) => this.onBlockChange(x, y, z, o, n, opts));
@@ -216,8 +221,8 @@ export class Game {
     this.world.on('chunkunload', (c) => this.onChunkUnload(c));
     this.clouds = new Clouds(this.scene, meta.seed); this.clouds.low = IS_TOUCH;
     this.ticker = new Ticker(this); this.fluids = new Fluids(this);
-    this.player = new Player(this.world); this.player.mode = meta.mode || 'survival';
-    this.gen = new Generator(meta.seed);
+    this.player = new Player(this.world); this.player.mode = meta.mode || 'survival'; this.player.autoJump = !!this.settings.autoJump;
+    this.gen = new Generator(meta.seed, { city });
     this.inventory = new Inventory(); this.survival = new Survival(this); this.interaction = new Interaction(this);
     this.entities.clear(); this.mobs = new MobManager(this); this.town = new Town(this);
     this.quests?.dispose(); this.quests = new Quests(this);
@@ -251,6 +256,13 @@ export class Game {
     this.stopWorld(); this.startMenuWorld(); this.menus.show('main'); this.controls.enabled = false;
   }
   findSpawn() {
+    if (this.gen.city) { // город: ближайший перекрёсток не на реке
+      for (let r = 0; r < 20; r++) for (let i = -r; i <= r; i++) for (let j = -r; j <= r; j++) {
+        if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue;
+        const x = i * 32 + 2, z = j * 32 + 2;
+        if (!cityRiver(this.gen, x, z)) return { x: x + 0.5, y: CITY_G + 2, z: z + 0.5 };
+      }
+    }
     const o = { h: 0, biome: 0, t: 0, hum: 0 };
     for (let r = 0; r < 4000; r += 16) {
       const n = r === 0 ? 1 : Math.max(8, r / 4);
@@ -389,7 +401,7 @@ export class Game {
     this.sfx.setListener(p.x, p.y + 1.6, p.z, p.yaw);
     this.hud.update(dt);
     this.container.update(dt);
-    this.slowT -= dt; if (this.slowT <= 0) { this.slowT = 0.3; this.chat.update(); this.touch?.setRobotVisible(!!this.nearestCar()); }
+    this.slowT -= dt; if (this.slowT <= 0) { this.slowT = 0.3; this.chat.update(); this.touch?.setRobotVisible(!!this.nearestCar()); this.touch?.setRiding(!!p.riding); }
   }
   tickMenu(dt) {
     const c = this.menuCenter, w = this.world, t = this.clock;

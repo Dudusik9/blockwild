@@ -115,26 +115,16 @@ export class Carbot extends Entity {
     g.quests?.say(this.mode === 'robot' ? 'car_robot' : 'car_car');
   }
 
-  // управление за рулём: направление как при ходьбе, машинка разворачивается туда и едет
+  // управление за рулём: вперёд/назад — газ, влево/вправо — руль; камера сама догоняет машинку
   drive(dt, inp, p) {
     const g = this.g;
     if (inp.sneak) { this.dismount(g); return; }
-    let fx = 0, fz = 0;
-    if (inp.forward) fz -= 1; if (inp.back) fz += 1; if (inp.left) fx -= 1; if (inp.right) fx += 1;
-    const len = Math.hypot(fx, fz);
-    let target = 0;
-    if (len > 0) {
-      fx /= len; fz /= len;
-      const s = Math.sin(p.yaw), c = Math.cos(p.yaw), wx = fx * c + fz * s, wz = -fx * s + fz * c;
-      let want = Math.atan2(wx, wz), df = want - this.yaw;
-      while (df > Math.PI) df -= 2 * Math.PI; while (df < -Math.PI) df += 2 * Math.PI;
-      if (inp.back && !inp.forward && !inp.left && !inp.right) target = -4; // назад — без разворота
-      else {
-        const turn = Math.max(-3.2 * dt, Math.min(3.2 * dt, df)); this.yaw += turn;
-        p.yaw += turn; // камера поворачивает вместе с машинкой
-        target = (inp.sprint ? 12 : 9) * Math.max(0, Math.cos(df));
-      }
-    }
+    const target = inp.forward && !inp.back ? (inp.sprint ? 12 : 9) : inp.back && !inp.forward ? -4 : 0;
+    const steer = (inp.left ? 1 : 0) - (inp.right ? 1 : 0); // влево — yaw растёт
+    if (steer) this.yaw += steer * 2.4 * dt * (this.speed < -0.5 ? -1 : 1);
+    // камера за машинкой
+    let df = this.yaw + Math.PI - p.yaw; while (df > Math.PI) df -= 2 * Math.PI; while (df < -Math.PI) df += 2 * Math.PI;
+    p.yaw += Math.max(-3 * dt, Math.min(3 * dt, df));
     const acc = target === 0 ? 10 : 12;
     this.speed += Math.max(-acc * dt, Math.min(acc * dt, target - this.speed));
     if (inp.jump && this.onGround) this.vy = 7;

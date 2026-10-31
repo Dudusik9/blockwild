@@ -4,22 +4,39 @@ import { clamp, smoothstep, piecewise, SEA } from '../core/math.js';
 import { B, SOLID, OPAC, FAMILY, BLOCKS } from './blocks.js';
 import { BIOME, classify } from './biomes.js';
 import { placeTree, placeCactus, placeBoulder, placeRuin } from './structures.js';
+import { generateCity, cityRiver, CITY_G } from './city.js';
 
 const R = 6;            // отступ региона для деревьев
 const RW = 16 + 2 * R;  // 28
 const CONT_PTS = [[-1, 20], [-0.6, 30], [-0.32, 48], [-0.14, 57], [-0.04, 61], [0.06, 64.5], [0.25, 69], [0.55, 76], [1, 88]];
 
+// карта высот и maxY по готовым блокам
+function finishHeights(blocks, heights) {
+  let maxY = 0;
+  for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
+    let y = 255;
+    for (; y > 0; y--) { const id = blocks[(y << 8) | (z << 4) | x]; if (id !== 0 && (SOLID[id] || OPAC[id] > 0 || FAMILY[id])) break; }
+    heights[z * 16 + x] = y;
+    if (y > maxY) maxY = y;
+  }
+  return maxY;
+}
+
 export class Generator {
-  constructor(seed) {
+  // opts.city — плоский бесконечный «Город спасателей»
+  constructor(seed, opts = {}) {
     this.seed = seed | 0;
     const s = this.seed;
+    this.city = !!opts.city;
     this.sCont = new Simplex(s + 11); this.sEro = new Simplex(s + 23); this.sPeak = new Simplex(s + 37);
     this.sTemp = new Simplex(s + 41); this.sHum = new Simplex(s + 53); this.sDet = new Simplex(s + 67);
     this.sMisc = new Simplex(s + 71); this.sCave = new Simplex(s + 83); this.sTubeA = new Simplex(s + 97); this.sTubeB = new Simplex(s + 101);
+    this.sRiver = new Simplex(s + 131);
   }
 
   // Выборка столбца: возвращает [h, biome]
   sample(x, z, out) {
+    if (this.city) { out.h = cityRiver(this, x, z) ? CITY_G - 2 : CITY_G; out.t = 0.3; out.hum = 0.2; out.biome = BIOME.MEADOW; return out; }
     const c = clamp(this.sCont.fbm2(x / 1000, z / 1000, 4) * 1.55 + 0.14, -1, 1);
     const e = clamp(this.sEro.fbm2(x / 650 + 500, z / 650 - 300, 3) * 1.6, -1, 1);
     const pv = 1 - Math.abs(this.sPeak.fbm2(x / 230 + 77, z / 230 + 13, 4)) * 2; // гребни 0..1
@@ -67,6 +84,7 @@ export class Generator {
   }
 
   generate(cx, cz) {
+    if (this.city) { const r = generateCity(this, cx, cz); r.maxY = finishHeights(r.blocks, r.heights); return r; }
     const blocks = new Uint16Array(65536);
     const biomes = new Uint8Array(256);
     const heights = new Uint8Array(256);
@@ -272,13 +290,7 @@ export class Generator {
     }
 
     // ---- карта высот
-    let maxY = 0;
-    for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
-      let y = 255;
-      for (; y > 0; y--) { const id = blocks[(y << 8) | (z << 4) | x]; if (id !== 0 && (SOLID[id] || OPAC[id] > 0 || FAMILY[id])) break; }
-      heights[z * 16 + x] = y;
-      if (y > maxY) maxY = y;
-    }
+    const maxY = finishHeights(blocks, heights);
     return { blocks, biomes, heights, bes, maxY };
   }
 }

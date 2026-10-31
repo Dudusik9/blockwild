@@ -1,6 +1,6 @@
 // Игрок: состояние и физика движения
 import { moveEntity, boxIntersects } from './physics.js';
-import { B, isLiquid, isLava, isWater } from '../world/blocks.js';
+import { B, isLiquid, isLava, isWater, SOLID } from '../world/blocks.js';
 import { clamp } from '../core/math.js';
 
 export class Player {
@@ -102,6 +102,14 @@ export class Player {
     if (this.hitX) this.vx = 0;
     if (this.hitZ) this.vz = 0;
     if (this.hitY) this.vy = 0;
+    // автопрыжок на ступеньку высотой в 1 блок (для планшета)
+    this.ajT = Math.max(0, (this.ajT || 0) - dt);
+    if (this.autoJump && len > 0 && wasGround && !this.flying && !this.inWater && !this.sneaking && (this.hitX || this.hitZ) && this.ajT === 0) {
+      const ahead = this.w / 2 + 0.35, bx = Math.floor(this.x + wx * ahead), bz = Math.floor(this.z + wz * ahead), by = Math.floor(this.y + 0.01);
+      if (SOLID[world.getBlock(bx, by, bz)] && !SOLID[world.getBlock(bx, by + 1, bz)] && !SOLID[world.getBlock(bx, by + 2, bz)] && !SOLID[world.getBlock(Math.floor(this.x), by + 2, Math.floor(this.z))]) {
+        this.vy = 9.0; this.onGround = false; this.jumped = true; this.ajT = 0.3;
+      }
+    }
     if (this.onGround && this.flying && !inp.jump && this.creative) { /* остаёмся в полёте — спуск при sneak */ }
     if (this.flying && this.onGround && inp.sneak) this.flying = false;
 
