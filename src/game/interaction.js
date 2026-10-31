@@ -66,7 +66,8 @@ export class Interaction {
     } else if (lDown && target) {
       const b = BLOCKS[target.id];
       if (p.creative) {
-        if (lPress || this.cool <= 0) { this.cool = 0.22; g.breakBlock(target.x, target.y, target.z, { byPlayer: true }); g.hand?.punch(); }
+        // неразрушаемые (касса, дно мира) не ломаются и в творческом
+        if (b.hardness >= 0 && (lPress || this.cool <= 0)) { this.cool = 0.22; g.breakBlock(target.x, target.y, target.z, { byPlayer: true }); g.hand?.punch(); }
         this.progress = 0; g.selection.setCrack(0);
       } else {
         const m = this.mining;
@@ -165,6 +166,7 @@ export class Interaction {
     const g = this.g, w = g.world;
     const id = t.id, b = BLOCKS[id], key = t.x + ',' + t.y + ',' + t.z;
     if (id === B.workbench) { g.openUI('workbench'); return true; }
+    if (id === B.shop_counter) { g.shop.open(); return true; }
     if (b.name.startsWith('furnace')) {
       let be = w.be.get(key); if (!be) { be = newFurnace(t.x, t.y, t.z); w.be.set(key, be); }
       g.openUI('furnace', be); return true;

@@ -6,14 +6,29 @@ import { BIOME } from './biomes.js';
 import { mulberry32, hash2 } from '../core/noise.js';
 import { placeTree } from './structures.js';
 import { FLOWERS } from '../render/tilenames.js';
+import { buildTower, PAW9 } from './build.js';
+import { I } from '../game/items.js';
 
 export const CITY_G = 64;          // уровень земли
 const S = 32, ROAD = 5;            // клетка квартала и ширина дороги
 const mod = (a, n) => ((a % n) + n) % n;
 const WALLS = ['wool_yellow', 'wool_green', 'wool_orange', 'wool_blue', 'wool_purple', 'wool_red', 'wool_white'];
-const PAW9 = ['..XX.XX..', '..XX.XX..', 'XX.....XX', 'XX.....XX', '...XXX...', '..XXXXX..', '.XXXXXXX.', '.XXXXXXX.', '..XX.XX..'];
+// База спасателей (версия города 2): кварталы 0..2 × 0..2 — одна большая площадь внутри кольцевой дороги
+export const BASE = {
+  x0: ROAD, x1: 3 * S - 1, z0: ROAD, z1: 3 * S - 1, // площадь 5..95
+  tower: { x: 50, z: 32, R: 9, s: 13, n: 5 },
+  garages: [{ x: 10, z: 12, wool: 'wool_red' }, { x: 10, z: 28, wool: 'wool_blue' }, { x: 10, z: 44, wool: 'wool_yellow' }], // 9×9, ворота на восток
+  heli: { x: 80, z: 30 },
+  shop: { x0: 74, x1: 92, z0: 56, z1: 68 }, // вход на запад
+  pad: { x: 67, z: 62 },
+  spawn: { x: 50.5, z: 98.5 },
+};
+const inBase = (gen, x, z, m = 0) => gen.cityVer >= 2 && x >= BASE.x0 - m && x <= BASE.x1 + m && z >= BASE.z0 - m && z <= BASE.z1 + m;
 
-export function cityRiver(gen, x, z) { return Math.abs(gen.sRiver.fbm2(x / 350, z / 350, 3)) < 0.03; }
+export function cityRiver(gen, x, z) {
+  if (inBase(gen, x, z, 14)) return false; // у базы рек нет
+  return Math.abs(gen.sRiver.fbm2(x / 350, z / 350, 3)) < 0.03;
+}
 
 export function generateCity(gen, cx, cz) {
   const G = CITY_G, seed = gen.seed;
@@ -46,7 +61,8 @@ export function generateCity(gen, cx, cz) {
       continue;
     }
     let top = B.grass;
-    if (road) {
+    if (inBase(gen, wx, wz)) top = B.stone_brick; // площадь базы
+    else if (road) {
       top = B.stone;
       if (roadX && !roadZ && lz === 2 && mod(wx, 6) < 3) top = B.wool_white;
       if (roadZ && !roadX && lx === 2 && mod(wz, 6) < 3) top = B.wool_white;
@@ -57,8 +73,11 @@ export function generateCity(gen, cx, cz) {
 
   // ---- кварталы, пересекающие чанк
   for (let ci = Math.floor(ox / S); ci <= Math.floor((ox + 15) / S); ci++) for (let cj = Math.floor(oz / S); cj <= Math.floor((oz + 15) / S); cj++) {
+    if (gen.cityVer >= 2 && ci >= 0 && ci <= 2 && cj >= 0 && cj <= 2) continue; // кварталы базы
     buildLot(gen, W, ci, cj, seed);
   }
+  const bes = [];
+  if (gen.cityVer >= 2 && ox <= BASE.x1 + 12 && ox + 15 >= BASE.x0 - 12 && oz <= BASE.z1 + 12 && oz + 15 >= BASE.z0 - 12) buildBase(W, bes, ox, oz);
 
   // ---- руды в камне
   const rnd = mulberry32(hash2(cx, cz, seed ^ 0x5bd1e995) * 4294967296);
@@ -74,7 +93,94 @@ export function generateCity(gen, cx, cz) {
   };
   vein(B.ore_coal, 20, 9, 5, 58); vein(B.ore_copper, 14, 7, 5, 58); vein(B.ore_iron, 12, 6, 5, 50); vein(B.ore_gold, 4, 5, 5, 32); vein(B.ore_crystal, 3, 4, 5, 18);
 
-  return { blocks, biomes, heights, bes: [], maxY: 0 };
+  return { blocks, biomes, heights, bes, maxY: 0 };
+}
+
+// ---------- база спасателей ----------
+function buildBase(W, bes, ox, oz) {
+  const G = CITY_G, y0 = G + 1, set = W.set;
+  const inChunk = (x, z) => x >= ox && x < ox + 16 && z >= oz && z < oz + 16;
+  // фонари по краю площади и клумбы
+  for (let t = BASE.x0 + 5; t <= BASE.x1 - 5; t += 10) for (const [x, z] of [[t, BASE.z0 + 1], [t, BASE.z1 - 1], [BASE.x0 + 1, t], [BASE.x1 - 1, t]]) {
+    if (z === BASE.z1 - 1 && x >= 43 && x <= 57) continue; // не загораживать арку
+    set(x, y0, z, B.log_birch); set(x, y0 + 1, z, B.log_birch); set(x, y0 + 2, z, B.lumen);
+  }
+  for (const [cx, cz] of [[22, 88], [78, 88], [30, 60], [90, 44]]) { // клумбы с деревцем
+    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+      set(cx + dx, G, cz + dz, Math.max(Math.abs(dx), Math.abs(dz)) === 2 ? B.stone_brick : B.grass);
+      if (Math.max(Math.abs(dx), Math.abs(dz)) === 1) set(cx + dx, y0, cz + dz, B['flower_' + FLOWERS[(Math.abs(dx * 3 + dz)) % FLOWERS.length]]);
+    }
+    placeTree(W, 'oak', cx, y0, cz, mulberry32(cx * 31 + cz));
+  }
+  // большая лапка: белый круг и лапка ×2
+  const px = 50, pz = 70;
+  for (let dx = -12; dx <= 12; dx++) for (let dz = -12; dz <= 12; dz++) if (dx * dx + dz * dz <= 132) set(px + dx, G, pz + dz, B.wool_white);
+  PAW9.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === 'X') for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) set(px - 9 + i * 2 + a, G, pz - 9 + j * 2 + b, B.wool_blue); }));
+  // башня
+  const T = BASE.tower; buildTower(set, T.x, T.z, y0, G, T);
+  // сундуки у входа в башню
+  const door = T.z + T.R + 2;
+  const chest = (x, z, items) => {
+    set(x, y0, z, B.chest_2);
+    if (!inChunk(x, z)) return;
+    const slots = new Array(27).fill(null); items.forEach(([n, c], i) => { if (I[n] !== undefined) slots[i] = { id: I[n], count: c, dmg: 0 }; });
+    bes.push({ type: 'chest', x, y: y0, z, slots });
+  };
+  chest(T.x - 4, door, [['fish', 16], ['dog_treat', 16], ['spawn_kitten', 2], ['spawn_puppy', 2], ['apple', 8], ['bread', 8]]);
+  chest(T.x + 4, door, [['wool_red', 64], ['wool_blue', 64], ['wool_yellow', 64], ['wool_green', 64], ['wool_white', 64], ['glass', 64], ['planks_oak', 64], ['door', 4], ['lumen', 16]]);
+  // гаражи щенков: ворота на восток
+  for (const g of BASE.garages) {
+    const wool = B[g.wool];
+    for (let x = 0; x < 9; x++) for (let z = 0; z < 9; z++) {
+      const edge = x === 0 || x === 8 || z === 0 || z === 8;
+      set(g.x + x, G, g.z + z, B.planks_oak);
+      for (let y = y0; y < y0 + 4; y++) set(g.x + x, y, g.z + z, edge ? wool : 0);
+      set(g.x + x, y0 + 4, g.z + z, edge ? B.wool_white : B.slab_brick);
+    }
+    for (let z = 2; z <= 6; z++) for (let y = y0; y < y0 + 3; y++) set(g.x + 8, y, g.z + z, 0); // ворота
+    for (let z = 2; z <= 6; z++) set(g.x + 8, y0 + 3, g.z + z, B.wool_yellow);
+    set(g.x + 4, y0 + 3, g.z + 4, B.lumen); set(g.x + 2, y0, g.z + 4, wool); // лежанка
+  }
+  // вертолётная площадка: белый круг с жёлтой «H»
+  const Hh = BASE.heli;
+  for (let dx = -7; dx <= 7; dx++) for (let dz = -7; dz <= 7; dz++) {
+    const d = dx * dx + dz * dz;
+    if (d <= 52) set(Hh.x + dx, G, Hh.z + dz, d >= 38 ? B.wool_yellow : B.wool_white);
+  }
+  for (let dz = -3; dz <= 3; dz++) { set(Hh.x - 2, G, Hh.z + dz, B.wool_yellow); set(Hh.x + 2, G, Hh.z + dz, B.wool_yellow); }
+  for (let dx = -1; dx <= 1; dx++) set(Hh.x + dx, G, Hh.z, B.wool_yellow);
+  for (const [dx, dz] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]) set(Hh.x + dx, y0, Hh.z + dz, B.lumen);
+  // магазин «Автосалон»: белые стены с синей полосой, стеклянная витрина на запад, красная крыша
+  const Sh = BASE.shop;
+  for (let x = Sh.x0; x <= Sh.x1; x++) for (let z = Sh.z0; z <= Sh.z1; z++) {
+    const edge = x === Sh.x0 || x === Sh.x1 || z === Sh.z0 || z === Sh.z1, corner = (x === Sh.x0 || x === Sh.x1) && (z === Sh.z0 || z === Sh.z1);
+    set(x, G, z, (x + z) % 2 ? B.wool_white : B.wool_black);
+    for (let y = y0; y < y0 + 5; y++) {
+      let id = 0;
+      if (edge) id = corner ? B.wool_blue : y === y0 + 3 ? B.wool_blue : (x === Sh.x0 && y < y0 + 3) ? B.glass : B.wool_white;
+      set(x, y, z, id);
+    }
+    set(x, y0 + 5, z, edge ? B.wool_red : B.wool_white);
+  }
+  for (let x = Sh.x0 - 1; x <= Sh.x1 + 1; x++) for (let z = Sh.z0 - 1; z <= Sh.z1 + 1; z++) set(x, y0 + 6, z, B.wool_red); // крыша с навесом
+  const midZ = (Sh.z0 + Sh.z1) >> 1;
+  for (let z = midZ - 1; z <= midZ + 1; z++) for (let y = y0; y < y0 + 3; y++) set(Sh.x0, y, z, 0); // вход
+  for (let z = Sh.z0 + 2; z <= Sh.z1 - 2; z++) set(Sh.x0 + 11, y0, z, B.slab_planks_oak); // прилавок
+  set(Sh.x0 + 11, y0, midZ, B.shop_counter);
+  set(Sh.x0 + 11, y0 + 1, midZ, B.lumen);
+  for (const z of [Sh.z0 + 3, Sh.z1 - 3]) set(Sh.x0 + 5, y0 + 4, z, B.lumen);
+  // вывеска над входом: красная машинка на белом
+  for (let dz = -3; dz <= 3; dz++) for (let dy = 0; dy < 3; dy++) set(Sh.x0 - 1, y0 + 3 + dy, midZ + dz, B.wool_white);
+  for (let dz = -2; dz <= 2; dz++) set(Sh.x0 - 1, y0 + 4, midZ + dz, B.wool_red);
+  set(Sh.x0 - 1, y0 + 5, midZ, B.wool_red); set(Sh.x0 - 1, y0 + 5, midZ - 1, B.wool_red);
+  set(Sh.x0 - 1, y0 + 3, midZ - 2, B.wool_black); set(Sh.x0 - 1, y0 + 3, midZ + 2, B.wool_black);
+  // площадка выдачи у магазина
+  const P = BASE.pad;
+  for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) set(P.x + dx, G, P.z + dz, Math.max(Math.abs(dx), Math.abs(dz)) === 3 ? ((dx + dz) % 2 ? B.wool_yellow : B.wool_black) : B.stone);
+  // арка у южного входа на площадь
+  for (const x of [44, 56]) for (let y = y0; y < y0 + 6; y++) set(x, y, BASE.z1 - 1, (y - y0) % 2 ? B.wool_white : B.wool_red);
+  for (let x = 44; x <= 56; x++) set(x, y0 + 6, BASE.z1 - 1, x % 2 ? B.wool_blue : B.wool_red);
+  set(50, y0 + 7, BASE.z1 - 1, B.lumen);
 }
 
 function lotKind(gen, ci, cj, seed) {

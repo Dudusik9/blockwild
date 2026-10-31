@@ -103,7 +103,7 @@ export class Menus {
       const meta = { id: 'w' + Date.now().toString(36), name, seed, mode, created: Date.now(), lastPlayed: Date.now() };
       const kids = f.querySelector('#nw-kids').value;
       if (kids === '0') { meta.noTown = true; meta.questsOff = true; }
-      if (kids === 'city') meta.worldType = 'city';
+      if (kids === 'city') { meta.worldType = 'city'; meta.cityVer = 2; }
       try { await g.storage.open(); await g.storage.saveWorld(meta); } catch (e) { /* без сохранений */ }
       g.startWorld(meta);
     }, 'green'));

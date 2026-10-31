@@ -96,7 +96,7 @@ export class MobManager {
     if (!d) return;
     this.popDone = new Set(d.pop || []);
     for (const m of d.mobs || []) {
-      if (m.k === 'carbot') { this.g.spawnCarbot(m.x, m.y, m.z, m.yaw, m.c, m.robot); continue; }
+      if (m.k === 'carbot') { this.g.spawnCarbot(m.x, m.y, m.z, m.yaw, m.c, m.robot, m.kind || 'car'); continue; }
       if (!this.kinds[m.k]) continue;
       const e = this.spawnMob(m.k, m.x, m.y, m.z, m.v); e.hp = m.hp; e.sheared = !!m.sh; if (m.w) e.wool = m.w;
       if (m.tm) { e.tamed = true; e.noDespawn = true; } e.sitting = !!m.st; e.lost = !!m.lo; if (m.nd) e.noDespawn = true; if (m.q) e.questId = m.q;

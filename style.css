@@ -109,6 +109,19 @@ canvas.logo { width: min(86vw, 560px); image-rendering: pixelated; filter: drop-
 .stk-right span { font-size: 34px; } .stk-right small { font-size: 22px; }
 .stk-exit { right: calc(104px + var(--sa-r)); bottom: calc(150px + var(--sa-b)); font-size: 30px; opacity: 0.6; }
 @media (max-height: 460px) { .ghost-joy { width: 104px; height: 104px; left: calc(30px + var(--sa-l)); bottom: calc(24px + var(--sa-b)); } .ghost-joy .gk { left: 30px; top: 30px; width: 44px; height: 44px; } .ga.u { left: 44px; } .ga.d { left: 44px; } .ga.l, .ga.r { top: 42px; } .stk-exit { bottom: calc(112px + var(--sa-b)); } .stk-right span { font-size: 28px; } }
+/* автосалон */
+.shop-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); pointer-events: auto; z-index: 20; padding: calc(6px + var(--sa-t)) calc(6px + var(--sa-r)) calc(6px + var(--sa-b)) calc(6px + var(--sa-l)); }
+.shop { width: min(940px, 96vw); max-height: 94vh; display: flex; flex-direction: column; background: #20283a; border: 4px solid #ffd75a; border-radius: 18px; padding: 10px; gap: 8px; }
+.shop-head { display: flex; align-items: center; gap: 12px; }
+.shop-title { font-size: 24px; font-weight: bold; flex: 1; } .shop-stars { font-size: 24px; color: #ffe27a; font-weight: bold; }
+.shop-close { width: 52px; height: 52px; border-radius: 50%; border: 3px solid #fff; background: #c83a30; color: #fff; font-size: 26px; cursor: pointer; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; overflow-y: auto; padding: 2px; }
+.shop-card { background: #2f3a52; border: 3px solid #4a5a7a; border-radius: 14px; padding: 6px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform .1s; }
+.shop-card:active { transform: scale(0.96); } .shop-card:hover { border-color: #ffd75a; }
+.shop-card canvas { width: 160px; height: 100px; image-rendering: pixelated; }
+.shop-name { font-size: 16px; text-align: center; } .shop-price { font-size: 22px; letter-spacing: -2px; min-height: 28px; }
+.shop-card.poor { opacity: 0.45; }
+@media (max-height: 460px) { .shop-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); } .shop-card canvas { width: 120px; height: 75px; } .shop-title, .shop-stars { font-size: 18px; } }
 /* миссии спасателей: стрелка-компас и звёзды */
 .quest { position: absolute; left: calc(12px + var(--sa-l)); top: calc(10px + var(--sa-t)); display: flex; align-items: center; gap: 6px; padding: 5px 14px 5px 6px; border-radius: 40px; background: rgba(20,30,52,0.6); border: 3px solid rgba(255,215,90,0.9); z-index: 5; pointer-events: auto; cursor: pointer; }
 .q-arrow { width: 56px; height: 56px; transition: transform .12s linear; }
@@ -116,8 +129,11 @@ canvas.logo { width: min(86vw, 560px); image-rendering: pixelated; filter: drop-
 .q-icon { font-size: 40px; line-height: 1; }
 .quest.near { animation: qpulse .7s ease-in-out infinite alternate; } .quest.near .q-arrow path { fill: #7dff8a; }
 @keyframes qpulse { from { transform: scale(1); } to { transform: scale(1.12); } }
-.q-stars { position: absolute; left: calc(14px + var(--sa-l)); top: calc(84px + var(--sa-t)); font-size: 28px; font-weight: bold; color: #ffe27a; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000; z-index: 5; }
-@media (max-height: 460px) { .q-arrow { width: 44px; height: 44px; } .q-icon { font-size: 32px; } .q-stars { top: calc(68px + var(--sa-t)); font-size: 22px; } }
+.quest.home { top: calc(82px + var(--sa-t)); border-color: rgba(120,190,255,0.95); background: rgba(20,40,80,0.6); padding-right: 10px; }
+.quest.home .q-arrow { width: 44px; height: 44px; } .quest.home .q-arrow path { fill: #8ccaff; stroke: #10305a; } .quest.home .q-icon { font-size: 30px; }
+.q-count { font-size: 22px; font-weight: bold; color: #ffe27a; text-shadow: 1px 1px 0 #000; } .q-count:empty { display: none; }
+.q-stars { position: absolute; left: calc(14px + var(--sa-l)); top: calc(146px + var(--sa-t)); font-size: 28px; font-weight: bold; color: #ffe27a; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000; z-index: 5; }
+@media (max-height: 460px) { .q-arrow { width: 44px; height: 44px; } .q-icon { font-size: 32px; } .q-stars { top: calc(118px + var(--sa-t)); font-size: 22px; } .quest.home { top: calc(64px + var(--sa-t)); } .quest.home .q-arrow { width: 36px; height: 36px; } }
 @media (pointer: coarse), (max-width: 760px) { :root { --slot: 40px; } #chat-log { bottom: calc(120px + var(--sa-b)); } #stats .icons img { width: 15px; height: 15px; } }
 @media (max-width: 480px) { :root { --slot: calc((100vw - 40px) / 9); } .btn { font-size: 16px; } }
 @media (max-height: 460px) { :root { --slot: 34px; } .panel { padding: 6px; gap: 4px; } .menu-screen { gap: 8px; } canvas.logo { width: min(50vw, 360px); } h1.dead { font-size: 30px; } .doll { display: none; } .form.scroll, .scroll { max-height: 56vh; } .world-list { max-height: 40vh; } .btn { padding: 6px 14px; font-size: 16px; } .crgrid { max-height: 90px; } .tbtn.jump { bottom: calc(60px + var(--sa-b)); } .tbtn.sneak { bottom: calc(50px + var(--sa-b)); } #hud-name { height: 16px; } }

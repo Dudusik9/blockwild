@@ -131,6 +131,8 @@ for (const fam of ['water', 'lava']) {
   }
 }
 B.water = B.water_0; B.lava = B.lava_0;
+// новые блоки — только в конец, чтобы не сдвинуть id в сохранённых мирах
+def('shop_counter', 'Касса автосалона', { t: { top: 'shop_top', side: 'shop_side' }, hardness: -1, sound: 'wood', drops: null, emit: 6 });
 
 export const N_BLOCKS = BLOCKS.length;
 export const OPAQUE = new Uint8Array(N_BLOCKS), OPAC = new Uint8Array(N_BLOCKS), EMIT = new Uint8Array(N_BLOCKS), SOLID = new Uint8Array(N_BLOCKS);

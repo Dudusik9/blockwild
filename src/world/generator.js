@@ -27,7 +27,7 @@ export class Generator {
   constructor(seed, opts = {}) {
     this.seed = seed | 0;
     const s = this.seed;
-    this.city = !!opts.city;
+    this.city = !!opts.city; this.cityVer = this.city ? (opts.cityVer || 1) : 0; // 2 — с большой базой
     this.sCont = new Simplex(s + 11); this.sEro = new Simplex(s + 23); this.sPeak = new Simplex(s + 37);
     this.sTemp = new Simplex(s + 41); this.sHum = new Simplex(s + 53); this.sDet = new Simplex(s + 67);
     this.sMisc = new Simplex(s + 71); this.sCave = new Simplex(s + 83); this.sTubeA = new Simplex(s + 97); this.sTubeB = new Simplex(s + 101);

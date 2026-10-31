@@ -37,7 +37,8 @@ import { MobModel, Paint } from '../entity/mobmodel.js';
 import { Town } from '../world/town.js';
 import { Quests } from './quests.js';
 import { Carbot } from '../entity/carbot.js';
-import { cityRiver, CITY_G } from '../world/city.js';
+import { Shop } from '../ui/shop.js';
+import { cityRiver, CITY_G, BASE } from '../world/city.js';
 
 export const IS_TOUCH = (typeof window !== 'undefined') && (('ontouchstart' in window) || (navigator.maxTouchPoints > 0)) &&
   ((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || new URLSearchParams(location.search).get('touch') === '1');
@@ -97,6 +98,7 @@ export class Game {
     this.chat = new Chat(this); this.chat.attach();
     this.container = new ContainerUI(this, document.getElementById('screens'));
     this.menus = new Menus(this, document.getElementById('screens'));
+    this.shop = new Shop(this);
     this.touch = IS_TOUCH ? new TouchControls(this) : null;
     this.hand = new Hand(this);
     this.particles = new Particles(this.scene, this.entityAtlas, null, this.materials.uniforms);
@@ -180,6 +182,7 @@ export class Game {
     this.touch?.setUIMode(true);
   }
   closeUI() {
+    if (this.shop?.isOpen) { this.shop.close(); return; }
     this.container.close(); this.uiOpen = false; this.touch?.setUIMode(false);
     if (this.state === 'playing') this.relock();
   }
@@ -212,8 +215,8 @@ export class Game {
     this.meta = meta;
     const saved = new Set();
     try { for (const k of await this.storage.listChunkKeys(meta.id)) saved.add(k); } catch (e) { /* нет БД */ }
-    const city = meta.worldType === 'city';
-    this.world = new World({ seed: meta.seed, scene: this.scene, materials: this.materials, settings: this.settings, storage: this.storage.db ? this.storage : null, worldId: meta.id, city });
+    const city = meta.worldType === 'city', cityVer = meta.cityVer || 1;
+    this.world = new World({ seed: meta.seed, scene: this.scene, materials: this.materials, settings: this.settings, storage: this.storage.db ? this.storage : null, worldId: meta.id, city, cityVer });
     this.world.savedKeys = saved;
     this.particles.world = this.world;
     this.world.on('blockchange', (x, y, z, o, n, opts) => this.onBlockChange(x, y, z, o, n, opts));
@@ -222,7 +225,7 @@ export class Game {
     this.clouds = new Clouds(this.scene, meta.seed); this.clouds.low = IS_TOUCH;
     this.ticker = new Ticker(this); this.fluids = new Fluids(this);
     this.player = new Player(this.world); this.player.mode = meta.mode || 'survival'; this.player.autoJump = !!this.settings.autoJump;
-    this.gen = new Generator(meta.seed, { city });
+    this.gen = new Generator(meta.seed, { city, cityVer });
     this.inventory = new Inventory(); this.survival = new Survival(this); this.interaction = new Interaction(this);
     this.entities.clear(); this.mobs = new MobManager(this); this.town = new Town(this);
     this.quests?.dispose(); this.quests = new Quests(this);
@@ -256,6 +259,7 @@ export class Game {
     this.stopWorld(); this.startMenuWorld(); this.menus.show('main'); this.controls.enabled = false;
   }
   findSpawn() {
+    if (this.gen.cityVer >= 2) return { x: BASE.spawn.x, y: CITY_G + 2, z: BASE.spawn.z }; // у арки базы
     if (this.gen.city) { // город: ближайший перекрёсток не на реке
       for (let r = 0; r < 20; r++) for (let i = -r; i <= r; i++) for (let j = -r; j <= r; j++) {
         if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue;
@@ -305,16 +309,19 @@ export class Game {
   onPetFed(pet) { this.quests?.onPetFed(pet); }
   onTownBuilt(town) { this.quests?.onTownBuilt(town); }
   onTownSite(site) { this.quests?.onTownBuilt(site); }
+  onFireOut(f) { this.quests?.onFireOut(f); }
+  onPickup(stack) { this.quests?.onPickup(stack); }
   // ---------- машинка-робот ----------
-  spawnCarbot(x, y, z, yaw, color, robot) {
-    const c = new Carbot(this, x, y, z, yaw, color || ['red', 'blue', 'yellow'][(Math.random() * 3) | 0]);
-    if (robot) { c.mode = 'robot'; c.t = 1; c.setSize(); c.pose(); }
+  spawnCarbot(x, y, z, yaw, style, robot, kind = 'car') {
+    const c = new Carbot(this, x, y, z, yaw, style || ['red', 'blue', 'yellow'][(Math.random() * 3) | 0], kind);
+    if (robot && c.kind === 'car') { c.mode = 'robot'; c.t = 1; c.setSize(); c.pose(); }
     this.entities.add(c); return c;
   }
+  // ближайшая машинка-робот (только легковые превращаются)
   nearestCar(r = 8) {
-    const p = this.player; if (p.riding) return p.riding;
+    const p = this.player; if (p.riding) return p.riding.kind === 'car' ? p.riding : null;
     let best = null, bd = r;
-    for (const e of this.entities.list) if (e.type === 'carbot' && !e.dead) { const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < bd) { bd = d; best = e; } }
+    for (const e of this.entities.list) if (e.type === 'carbot' && !e.dead && e.kind === 'car') { const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < bd) { bd = d; best = e; } }
     return best;
   }
   transformCar() { const c = this.nearestCar(); if (c) c.transform(this); return !!c; }
@@ -509,7 +516,7 @@ export class Game {
     const pm = this.playerModel.group;
     if (this.view > 0) {
       const dir = new THREE.Vector3(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
-      const sign = this.view === 1 ? 1 : -1; let dist = p.riding ? 5.5 : 4;
+      const sign = this.view === 1 ? 1 : -1; let dist = p.riding ? (p.riding.kind === 'car' ? 5.5 : 7.5) : 4;
       const r2 = raycast(this.world, cam.position.x, cam.position.y, cam.position.z, -dir.x * sign, -dir.y * sign, -dir.z * sign, dist);
       if (r2.hit) dist = Math.max(0.6, r2.dist - 0.3);
       cam.position.x -= dir.x * sign * dist; cam.position.y -= dir.y * sign * dist; cam.position.z -= dir.z * sign * dist;

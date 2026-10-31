@@ -18,7 +18,9 @@ const HELP = [
   ['/setspawn', 'точка возрождения здесь'],
   ['/items [фильтр]', 'список названий предметов'],
   ['/town', 'построить Городок спасателей перед собой'],
-  ['/quest [lost|tree|hungry|flag|on|off]', 'миссия спасателей: начать новую, включить или выключить'],
+  ['/quest [lost|tree|roof|hungry|flag|fire|delivery|stars|race|heli|on|off]', 'миссия спасателей: начать новую, включить или выключить'],
+  ['/shop', 'открыть автосалон'],
+  ['/stars <n>', 'установить число звёзд'],
 ];
 
 export function runCommand(g, line) {
@@ -107,6 +109,8 @@ export function runCommand(g, line) {
       if (!g.quests.start(a || undefined)) err('Не получилось начать миссию здесь');
       break;
     }
+    case 'shop': g.closeChat?.(); setTimeout(() => g.shop.open(), 50); break;
+    case 'stars': { const n = parseInt(parts[0] || '10', 10) || 0; g.quests.st.stars = n; log('⭐ ' + n); break; }
     case 'biome': { const b = BIOMES[g.world.getBiome(Math.floor(p.x), Math.floor(p.z))]; log('Биом: ' + b.name); break; }
     default: err('Неизвестная команда: /' + cmd + '. Введите /help');
   }

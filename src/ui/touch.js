@@ -23,7 +23,10 @@ export class TouchControls {
     };
     this.bJump = mk('jump', '⤒', null, (d) => { if (d) c.keys.add('Space'); else c.keys.delete('Space'); });
     this.sneakOn = false;
-    this.bSneak = mk('sneak', '⤓', () => { this.sneakOn = !this.sneakOn; this.bSneak.classList.toggle('latch', this.sneakOn); if (this.sneakOn) c.keys.add('ShiftLeft'); else c.keys.delete('ShiftLeft'); });
+    this.bSneak = mk('sneak', '⤓', () => {
+      if (game.player?.riding) { c.keys.add('ShiftLeft'); setTimeout(() => { if (!this.sneakOn) c.keys.delete('ShiftLeft'); }, 150); return; } // за рулём — просто «выйти»
+      this.sneakOn = !this.sneakOn; this.bSneak.classList.toggle('latch', this.sneakOn); if (this.sneakOn) c.keys.add('ShiftLeft'); else c.keys.delete('ShiftLeft');
+    });
     mk('inv', '🎒', () => { if (game.uiOpen) game.closeUI(); else if (game.state === 'playing') game.openUI('inventory'); });
     mk('chat', '💬', () => { if (game.state === 'playing' && !game.uiOpen) game.openChat(''); });
     mk('pause', '⏸', () => game.pause());
@@ -58,6 +61,7 @@ export class TouchControls {
   }
   setRobotVisible(v) { this.bRobot.classList.toggle('hidden', !v); }
   setRiding(v) { this.hintExit.classList.toggle('hidden', !v); }
+  unlatchSneak() { this.sneakOn = false; this.bSneak.classList.remove('latch'); this.g.controls.keys.delete('ShiftLeft'); }
   setHints(v) { this.root.classList.toggle('nohints', !v); }
   setUIMode(on, menu) { this.root.classList.toggle('uimode', !!on); if (on) this.releaseAll(); if (menu) this.root.classList.toggle('hidden', !!on); else if (!on && this.g.state === 'playing') this.root.classList.remove('hidden'); }
   releaseAll() {

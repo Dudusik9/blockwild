@@ -76,6 +76,8 @@ item('dog_treat', 'Косточка-печенька');
 item('spawn_kitten', 'Котёнок', { spawn: 'kitten' });
 item('spawn_puppy', 'Щенок-спасатель', { spawn: 'puppy' });
 item('car_key', 'Машинка-робот', { stack: 1, spawn: 'carbot' });
+item('parcel', 'Посылка', { stack: 1 });
+item('star_token', 'Звёздочка');
 
 export const getItem = (id) => ITEMS.get(id);
 export const maxStack = (id) => { const it = ITEMS.get(id); return it ? it.stack : 64; };

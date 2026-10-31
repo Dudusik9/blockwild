@@ -296,6 +296,11 @@ export class Mob extends Entity {
       return;
     }
     if (!w.isLoaded(Math.floor(this.x), Math.floor(this.z))) return;
+    // едет в кузове грузовичка: позицию задаёт грузовик
+    if (this.ridingOn) {
+      if (this.ridingOn.dead || !this.ridingOn.rider) this.ridingOn = null;
+      else { this.walkAmt = 0; this.animate(dt, g, Math.hypot(p.x - this.x, p.z - this.z)); return; }
+    }
     this.hurtT = Math.max(0, this.hurtT - dt);
     const dx = p.x - this.x, dz = p.z - this.z, dist = Math.hypot(dx, dz), dy = p.y - this.y;
     this.wishX = 0; this.wishZ = 0; this.speedMul = 1;
@@ -378,7 +383,9 @@ export class Mob extends Entity {
     // дикий: идёт к игроку, если у того в руке лакомство
     const st = g.inventory.held, it = st ? getItem(st.id) : null;
     if (it && this.def.treats.includes(it.name) && dist < 8) { if (dist > 1.6) this.goTo(dt, g, p.x, p.y, p.z, 1.2); return; }
-    if (!this.lost) this.wander(dt); // потерявшийся сидит на месте и зовёт
+    if (!this.lost) { this.wander(dt); return; } // потерявшийся сидит на месте и зовёт
+    // на крыше или дереве: когда игрок подошёл — спрыгивает к нему
+    if (dist < 4.5 && this.y - p.y > 1.5 && p.onGround && !p.flying && this.teleportNear(g)) { g.particles?.hearts(this.x, this.y + this.h, this.z, 6); }
   }
   // прыжок к игроку, если тот убежал далеко
   teleportNear(g) {

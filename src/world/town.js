@@ -7,14 +7,13 @@ import { mulberry32 } from '../core/noise.js';
 import { FLOWERS } from '../render/tilenames.js';
 import { newChest } from '../game/furnace.js';
 import { I } from '../game/items.js';
+import { buildTower, PAW9 } from './build.js';
+import { BASE, CITY_G } from './city.js';
 
 // габариты относительно центра площади
 const X0 = -22, X1 = 22, Z0 = -22, Z1 = 24, MARGIN = 3;
 const TOWER = { x: 0, z: -13 };
 
-// лапка 9×9 (X — синяя шерсть)
-const PAW9 = ['..XX.XX..', '..XX.XX..', 'XX.....XX', 'XX.....XX', '...XXX...', '..XXXXX..', '.XXXXXXX.', '.XXXXXXX.', '..XX.XX..'];
-const PAW5 = ['.X.X.', 'X...X', '.....', '.XXX.', '.XXX.'];
 
 const HOUSES = [ // x0, z0 (угол 7×7), цвет стен, сторона двери
   { x: -16, z: -4, wool: 'wool_yellow', door: 'east' }, { x: -16, z: 5, wool: 'wool_green', door: 'east' },
@@ -33,6 +32,7 @@ export class Town {
     const g = this.g, m = g.meta;
     if (!m || m.townBuilt || m.noTown || g.state !== 'playing') return;
     this.t -= dt; if (this.t > 0) return; this.t = 1;
+    if (m.worldType === 'city' && (m.cityVer || 1) >= 2) { this.settleBase(); return; }
     if (!this.site) {
       this.site = m.townSite || this.findSite(); if (!this.site) { m.noTown = true; return; }
       m.townSite = this.site;
@@ -40,6 +40,23 @@ export class Town {
     }
     if (!this.chunksReady(this.site.x, this.site.z)) return;
     this.build(this.site.x, this.site.z);
+  }
+
+  // город v2: база уже построена генератором — поселить щенков и машинку, когда прогрузятся их места
+  settleBase() {
+    const g = this.g, w = g.world, m = g.meta, T = BASE.tower, y0 = CITY_G + 1;
+    const spots = [[T.x, T.z], [BASE.pad.x, BASE.pad.z], ...BASE.garages.map((q) => [q.x + 10, q.z + 4])];
+    if (!spots.every(([x, z]) => { const c = w.getChunk(x >> 4, z >> 4); return c && c.ready && c.blocks; })) return;
+    BASE.garages.forEach((q, i) => {
+      const p = g.mobs.spawnMob('puppy', q.x + 10.5, y0 + 0.05, q.z + 4.5, i);
+      p.tamed = true; p.noDespawn = true; p.sitting = true; p.yaw = -Math.PI / 2;
+    });
+    g.spawnCarbot(BASE.pad.x + 0.5, y0 + 0.05, BASE.pad.z + 0.5, Math.PI, 'red');
+    m.town = { x: 50, z: 50, y: y0, base: true, tower: { x: T.x, y: y0, z: T.z }, door: { x: T.x + 0.5, y: y0, z: T.z + T.R + 3.5 },
+      shopPad: { x: BASE.pad.x + 0.5, y: y0, z: BASE.pad.z + 0.5 }, heli: { x: BASE.heli.x + 0.5, y: y0, z: BASE.heli.z + 0.5 } };
+    m.townBuilt = true;
+    g.chat?.log('База щенков-спасателей ждёт тебя! 🐾', '#ffd75a');
+    g.onTownBuilt?.(m.town);
   }
 
   footprintChunks(cx, cz) {
@@ -152,73 +169,15 @@ export class Town {
       p.tamed = true; p.noDespawn = true; p.sitting = true; p.yaw = 0;
     });
     g.spawnCarbot(cx - 7, y0 + 0.05, cz - 9.5, 0, 'red');
-    const m = g.meta; m.townBuilt = true; m.town = { x: cx, z: cz, y: y0, tower: { x: cx + TOWER.x, y: y0, z: cz + TOWER.z } };
+    const m = g.meta; m.townBuilt = true;
+    m.town = { x: cx, z: cz, y: y0, tower: { x: cx + TOWER.x, y: y0, z: cz + TOWER.z }, door: { x: cx + TOWER.x + 0.5, y: y0, z: cz + TOWER.z + 7.5 }, shopPad: { x: cx - 7, y: y0, z: cz - 12.5 } };
     g.chat?.log('Рядом появился Городок спасателей! 🐾', '#ffd75a');
     g.onTownBuilt?.(m.town);
     return m.town;
   }
 
-  // башня: восьмиугольник, внутри винтовая лестница из полублоков вокруг светлой колонны
-  buildTower(set, tx, tz, y0, H) {
-    const ab = Math.abs, oct = (x, z, r, s) => Math.max(ab(x), ab(z)) <= r && ab(x) + ab(z) <= s;
-    const TOP = y0 + 11; // уровень площадки
-    for (let x = -6; x <= 6; x++) for (let z = -6; z <= 6; z++) {
-      if (!oct(x, z, 5, 7)) continue;
-      set(tx + x, H, tz + z, B.stone_brick);
-      const inside = Math.max(ab(x), ab(z)) <= 3;
-      if (inside) continue;
-      for (let y = y0; y < TOP; y++) {
-        const k = y - y0;
-        let id = k < 2 ? B.stone_brick : k === 2 ? B.wool_blue : B.wool_white;
-        const face = (ab(x) <= 1 && ab(z) >= 4) || (ab(z) <= 1 && ab(x) >= 4);
-        if (face && (k === 3 || k === 4 || k === 8 || k === 9) && !(z > 0 && ab(x) <= 2)) id = B.glass;
-        set(tx + x, y, tz + z, id);
-      }
-    }
-    // дверной проём на юг
-    for (const z of [4, 5]) for (let y = y0; y <= y0 + 2; y++) set(tx, y, tz + z, 0); // 3 блока: сразу за дверью ступень
-    set(tx, y0 + 3, tz + 5, B.wool_blue);
-    // лапка на южной стене
-    PAW5.forEach((row, j) => [...row].forEach((ch, i) => { if (ch === 'X') set(tx + i - 2, y0 + 10 - j, tz + 5, B.wool_blue); }));
-    // колонна со светокамнями
-    for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) for (let y = y0; y < TOP; y++) {
-      const edge = Math.max(ab(x), ab(z)) === 2 && (ab(x) === 0 || ab(z) === 0);
-      set(tx + x, y, tz + z, edge && (y - y0) % 4 === 2 ? B.lumen : B.wool_white);
-    }
-    // ступени по периметру 7×7: от входа по часовой, полблока на клетку
-    const ring = [];
-    for (let x = 0; x >= -3; x--) ring.push([x, 3]);
-    for (let z = 2; z >= -3; z--) ring.push([-3, z]);
-    for (let x = -2; x <= 3; x++) ring.push([x, -3]);
-    for (let z = -2; z <= 3; z++) ring.push([3, z]);
-    for (let x = 2; x >= 1; x--) ring.push([x, 3]);
-    ring.forEach(([x, z], k) => {
-      const half = k + 1, full = (half >> 1);
-      for (let y = y0; y < y0 + full; y++) set(tx + x, y, tz + z, B.planks_spruce);
-      if (half & 1) set(tx + x, y0 + full, tz + z, B.slab_planks_spruce);
-    });
-    // площадка с проёмом над последними ступенями
-    const hole = new Set(ring.slice(17, 23).map(([x, z]) => x + ',' + z)); // запас под голову на ступенях 17–22
-    for (let x = -6; x <= 6; x++) for (let z = -6; z <= 6; z++) {
-      if (!oct(x, z, 6, 8) || hole.has(x + ',' + z)) continue;
-      set(tx + x, TOP, tz + z, B.planks_spruce);
-      if (!oct(x, z, 5, 7)) set(tx + x, TOP + 1, tz + z, B.glass_pane);
-    }
-    // смотровая кабина: стеклянные стены, проёмы на 4 стороны, красная крыша
-    for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) {
-      if (!oct(x, z, 4, 6) || oct(x, z, 3, 5) || hole.has(x + ',' + z)) continue;
-      const gap = (x === 0 || z === 0);
-      for (let y = TOP + 1; y <= TOP + 3; y++) set(tx + x, y, tz + z, gap && y <= TOP + 2 ? 0 : B.glass);
-    }
-    for (let x = -5; x <= 5; x++) for (let z = -5; z <= 5; z++) {
-      if (oct(x, z, 5, 7)) set(tx + x, TOP + 4, tz + z, x === 0 && z === 0 ? B.lumen : B.wool_red);
-      if (oct(x, z, 3, 4)) set(tx + x, TOP + 5, tz + z, B.wool_red);
-      if (oct(x, z, 1, 1)) set(tx + x, TOP + 6, tz + z, B.wool_red);
-    }
-    for (let y = TOP + 7; y <= TOP + 10; y++) set(tx, y, tz, B.block_iron);
-    set(tx, TOP + 11, tz, B.lumen);
-    for (let y = TOP + 9; y <= TOP + 10; y++) for (let x = 1; x <= 3; x++) set(tx + x, y, tz, B.wool_red);
-  }
+  // башня — общий построитель (build.js), маленький размер
+  buildTower(set, tx, tz, y0, H) { return buildTower(set, tx, tz, y0, H, { R: 5, s: 7, n: 3 }); }
 
   buildHouse(set, h, y0, H) {
     const { x: hx, z: hz } = h, wool = B[h.wool];
